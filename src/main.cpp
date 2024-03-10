@@ -22,6 +22,7 @@ const char *serverName = "https://gameapi-2e9bb6e38339.herokuapp.com/api/v1/reso
 
 void whatAnimal();
 void savePlayerData();
+
 void getPlayerData();
 
 void yesButtonPressed()
