@@ -3,35 +3,26 @@
 #include <SPI.h>            // Include the SPI library
 #include <HardwareSerial.h> // Include the HardwareSerial library
 #include <string>
-#include <iostream>
-#include <sstream>
-// #include "Trex.h"
-#include "arduino_secrets.h"
-#include <HTTPClient.h>
+// #include <HTTPClient.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
+
+#include "arduino_secrets.h" // Include the file with the WiFi credentials
 #include "displayFunctions.h"
 
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS;
-char serverAddress[] = "https://gameapi-2e9bb6e38339.herokuapp.com/api/v1/resources"; // server address
-int port = 5000;                                                                      // server port
-
-//TFT_eSPI tft; // Create an instance of the TFT class
 
 HardwareSerial mySerial(1); // Use the second hardware serial port
 
 // volatile bool buttonPressed = false;
 volatile int buttonValue = -1; // Global variable to hold the button value
 
-// const char *ssid = "55akaitoke";
-// const char *password = "superbank";
-
 const char *serverName = "https://gameapi-2e9bb6e38339.herokuapp.com/api/v1/resources";
 
 void whatAnimal();
 void savePlayerData();
 void getPlayerData();
-void getJsonData();
 
 void yesButtonPressed()
 {
@@ -46,6 +37,12 @@ void noButtonPressed()
 const int yesButtonPin = 35; // Button1 on the TTGO T-Display
 const int noButtonPin = 0;   // Button2 on the TTGO T-Display
 
+void clearScreen()
+{
+  tft.fillScreen(TFT_BLACK);
+  tft.setCursor(0, 0);
+}
+
 void connectToNetwork()
 {
   WiFi.begin(ssid, pass); // Connect to the network
@@ -53,17 +50,15 @@ void connectToNetwork()
 
   while (WiFi.status() != WL_CONNECTED)
   {
-    tft.fillScreen(TFT_BLACK); // Clear the screen
-    tft.setCursor(0, 0);
+    clearScreen();
     tft.println("Connecting to WiFi...");
     // delay(1000); // Wait for 1 second
   }
-  tft.fillScreen(TFT_BLACK); // Clear the screen
-  tft.setCursor(0, 0);
+  clearScreen();
   tft.println("Connected to WiFi!");
-  delay(2000); // Wait for 1 second
-  // getPlayerData();
-  delay(10000); // Wait for 10 seconds before next request
+  delay(500); // Wait for 1 second
+  getPlayerData();
+  delay(2000); // Wait for 10 seconds before next request
 }
 
 std::pair<std::string, int> extractWordAndNumberString(const std::string &str)
@@ -103,14 +98,6 @@ std::pair<std::string, int> extractWordAndNumberString(const std::string &str)
   return {word, number};
 }
 
-void buttonReadText()
-{
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextSize(3);
-  tft.setTextColor(TFT_WHITE);
-  tft.setCursor(0, 0);
-  tft.println("\n      yes--->\n\n\n      no--->");
-}
 int buttonConfirm()
 {
   attachInterrupt(digitalPinToInterrupt(yesButtonPin), yesButtonPressed, FALLING);
@@ -138,8 +125,9 @@ void setup()
   Serial.begin(115200);
   mySerial.begin(9600, SERIAL_8N1, 27, 26); // Initialize serial communication on pins 27 (RX) and 26 (TX)
   tft.init();                               // Initialize the TFT display
-  tft.setRotation(1);                       // Set the display rotation (if needed)
-  tft.fillScreen(TFT_BLACK);                // Clear the display
+  clearScreen();
+  tft.setTextSize(3);
+  tft.setTextColor(TFT_WHITE);
 
   // Initialize the button pins as input
   pinMode(yesButtonPin, INPUT_PULLUP);
@@ -159,9 +147,6 @@ void loop()
     String barcode = mySerial.readString();
     if (!barcode.isEmpty())
     {
-      // tft.fillScreen(TFT_BLACK);
-      tft.setTextSize(3);
-      tft.setTextColor(TFT_WHITE);
 
       std::string extractWord(const std::string &str);
 
@@ -182,8 +167,7 @@ void loop()
       }
       else if (word == "creatureCapture")
       {
-        tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0);
+        clearScreen();
         tft.println("Seek Creature\n to be your");
         whatAnimal();
       }
@@ -223,9 +207,7 @@ void whatAnimal()
   input = mySerial.readString();
 
   String word = "";
-
-  tft.setCursor(0, 0);
-  tft.fillScreen(TFT_BLACK);
+  clearScreen();
 
   std::string myText = input.c_str(); // Convert Arduino String to std::string
 
@@ -233,10 +215,6 @@ void whatAnimal()
 
   std::string animal = result.first;
   int number = result.second;
-
-  // tft.println(("Animal:\n" + animal).c_str()); // Print the word to the serial monitor
-  // delay(2000);                                 // Wait for 1 seconds
-  // tft.fillScreen(TFT_BLACK);
 
   if (animal == "babyTrex")
   {
@@ -249,16 +227,14 @@ void whatAnimal()
 
     if (buttonConfirm() == 1)
     {
-      tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0);
+      clearScreen();
       tft.println("Return to\ntavern to\nkeep\ncreature");
       delay(1000); // Wait for 2 seconds
       connectToNetwork();
     }
     else
     {
-      tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0);
+      clearScreen();
       tft.println("\nPick another\ncreature");
       delay(1000); // Wait for 2 seconds
       return;
@@ -268,9 +244,6 @@ void whatAnimal()
   else
   {
     tft.println("Invalid input: " + input);
-    // displayErrorMessage("Invalid input", input);
-    //  Add a comment or a dummy statement here
-    delay(1500); // Wait for 2 seconds
     scan4challange();
     return;
   }
@@ -278,40 +251,58 @@ void whatAnimal()
 
 void getPlayerData()
 {
-  // WiFiClientSecure client;
   if (WiFi.status() == WL_CONNECTED)
-  {
-    WiFiClient client;
-    HttpClient http(client, serverName);
+  { // Check WiFi connection status
 
-    String serverPath = "/api/v1/resources";
+    WiFiClientSecure client;
 
-    http.beginRequest();
-    http.get(serverPath);
-    http.sendHeader("Content-Type", "application/json");
-    http.endRequest();
+    String serverNameString = String(serverName); // Convert serverName to String type
 
-    int httpResponseCode = http.responseStatusCode();
+    if (!client.connect(serverNameString.c_str(), 443))
+    {
+      Serial.println("Connection to server failed");
+      return;
+    }
+
+    client.println("GET /api/v1/resources HTTP/1.1");
+    client.println("Host: " + serverNameString); // Use serverNameString instead of String(serverName)
+    client.println("Connection: close");
+    client.println();
+
+    while (client.connected())
+    {
+      String line = client.readStringUntil('\n');
+      if (line == "\r")
+      {
+        break;
+      }
+    }
+
+    String httpResponse = client.readStringUntil('\n');
+    int httpResponseCode = httpResponse.toInt();
 
     if (httpResponseCode >= 200 && httpResponseCode < 300)
     {
-      String response = http.responseBody();
-      tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0);
+      String response = client.readStringUntil('\r');
+      clearScreen();
       tft.println(httpResponseCode);
       tft.println(response);
     }
     else
     {
-      tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0);
+      clearScreen();
       tft.print("Error on sending GET: ");
       tft.println(httpResponseCode);
     }
   }
+  else
+  {
+    Serial.println("Not connected to WiFi");
+  }
 
-  delay(5000); // Wait for 10 seconds before next loop
+  delay(5000); // Wait for 5 seconds before next loop
 }
+
 /*
 void savePlayerData()
 {

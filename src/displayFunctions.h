@@ -86,6 +86,15 @@ void animateEyes()
   }
 }
 
+void buttonReadText()
+{
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextSize(3);
+  tft.setTextColor(TFT_WHITE);
+  tft.setCursor(0, 0);
+  tft.println("\n      yes--->\n\n\n      no--->");
+}
+
 void displayErrorMessage(const std::string &message)
 {
   tft.fillScreen(TFT_BLACK); // Clear the screen
