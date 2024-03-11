@@ -10,6 +10,8 @@
 #include "arduino_secrets.h" // Include the file with the WiFi credentials
 #include "displayFunctions.h"
 
+WiFiClientSecure client;
+
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS;
 
@@ -18,7 +20,9 @@ HardwareSerial mySerial(1); // Use the second hardware serial port
 // volatile bool buttonPressed = false;
 volatile int buttonValue = -1; // Global variable to hold the button value
 
-const char *serverName = "https://gameapi-2e9bb6e38339.herokuapp.com/api/v1/resources";
+// const char *serverName = "https://gameapi-2e9bb6e38339.herokuapp.com";
+
+const char *server = "https://gameapi-2e9bb6e38339.herokuapp.com";
 
 void whatAnimal();
 void savePlayerData();
@@ -127,6 +131,7 @@ void setup()
   mySerial.begin(9600, SERIAL_8N1, 27, 26); // Initialize serial communication on pins 27 (RX) and 26 (TX)
   tft.init();                               // Initialize the TFT display
   clearScreen();
+  tft.setRotation(1);
   tft.setTextSize(3);
   tft.setTextColor(TFT_WHITE);
 
@@ -252,105 +257,52 @@ void whatAnimal()
 
 void getPlayerData()
 {
-  if (WiFi.status() == WL_CONNECTED)
-  { // Check WiFi connection status
+  Serial.print("Connected to ");
+  tft.println("Connected to ");
+  Serial.println(ssid);
+  tft.println(ssid);
 
-    WiFiClientSecure client;
+  clearScreen();
 
-    String serverNameString = String(serverName); // Convert serverName to String type
-
-    if (!client.connect(serverNameString.c_str(), 443))
-    {
-      Serial.println("Connection to server failed");
-      return;
-    }
-
-    client.println("GET /api/v1/resources HTTP/1.1");
-    client.println("Host: " + serverNameString); // Use serverNameString instead of String(serverName)
-    client.println("Connection: close");
-    client.println();
-
-    while (client.connected())
-    {
-      String line = client.readStringUntil('\n');
-      if (line == "\r")
-      {
-        break;
-      }
-    }
-
-    String httpResponse = client.readStringUntil('\n');
-    int httpResponseCode = httpResponse.toInt();
-
-    if (httpResponseCode >= 200 && httpResponseCode < 300)
-    {
-      String response = client.readStringUntil('\r');
-      clearScreen();
-      tft.println(httpResponseCode);
-      tft.println(response);
-    }
-    else
-    {
-      clearScreen();
-      tft.print("Error on sending GET: ");
-      tft.println(httpResponseCode);
-    }
+  Serial.println("\nStarting connection to server...");
+  tft.println("\nStarting connection to server...");
+  client.setInsecure(); // skip verification
+  if (!client.connect(server, 443))
+  {
+    clearScreen();
+    Serial.println("Connection failed!");
+    tft.println("Connection failed!");
   }
   else
   {
-    Serial.println("Not connected to WiFi");
+    clearScreen();
+    Serial.println("Connected to server!");
+    tft.println("Connected to server!");
+    // Make a HTTP request:
+    client.println("GET https://gameapi-2e9bb6e38339.herokuapp.com/api/v1/resources HTTP/1.1");
+    client.println("Host: gameapi-2e9bb6e38339.herokuapp.com");
+    client.println("Connection: close");
+    client.println();
   }
 
-  delay(5000); // Wait for 5 seconds before next loop
-}
-
-/*
-void savePlayerData()
-{
-  WiFiClientSecure client;
-  if (WiFi.status() == WL_CONNECTED)
+  while (client.connected())
   {
-
-    WiFiClient client;
-    HttpClient http(client, serverName);
-
-    String serverPath = "/api/v1/resources";
-
-    DynamicJsonDocument doc(200);
-    doc["player_name"] = "Player1";
-    doc["creature"] = "Dragon";
-    doc["powerLevel"] = 9000;
-
-    String requestBody;
-    serializeJson(doc, requestBody);
-
-    http.beginRequest();
-    http.post(serverPath);
-    http.sendHeader("Content-Type", "application/json");
-    http.sendHeader("Content-Length", requestBody.length());
-    http.beginBody();
-    http.print(requestBody);
-    http.endRequest();
-
-    int httpResponseCode = http.responseStatusCode();
-
-    if (httpResponseCode >= 200 && httpResponseCode < 300)
+    String line = client.readStringUntil('\n');
+    if (line == "\r")
     {
-      String response = http.responseBody();
-      tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0);
-      tft.println(httpResponseCode);
-      tft.println(response);
-    }
-    else
-    {
-      tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0);
-      tft.print("Error on sending POST: ");
-      tft.println(httpResponseCode);
+      Serial.println("headers received");
+      tft.println("headers received");
+
+      break;
     }
   }
+  // if there are incoming bytes available
+  // from the server, read them and print them:
+  while (client.available())
+  {
+    char c = client.read();
+    Serial.write(c);
+  }
 
-  delay(5000); // Wait for 10 seconds before next loop
+  client.stop();
 }
-*/
