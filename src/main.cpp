@@ -3,12 +3,13 @@
 #include <SPI.h>            // Include the SPI library
 #include <HardwareSerial.h> // Include the HardwareSerial library
 #include <string>
-// #include <HTTPClient.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 
 #include "arduino_secrets.h" // Include the file with the WiFi credentials
 #include "displayFunctions.h"
+
+#include <WiFiClientSecure.h> // Include the WiFiClientSecure library
 
 WiFiClientSecure client;
 
@@ -257,29 +258,28 @@ void whatAnimal()
 
 void getPlayerData()
 {
-  Serial.print("Connected to ");
+
+  client.setInsecure(); // Use this to disable certificate checking (dodgy);
   tft.println("Connected to ");
-  Serial.println(ssid);
   tft.println(ssid);
 
   clearScreen();
 
-  Serial.println("\nStarting connection to server...");
   tft.println("\nStarting connection to server...");
   client.setInsecure(); // skip verification
   if (!client.connect(server, 443))
   {
     clearScreen();
-    Serial.println("Connection failed!");
     tft.println("Connection failed!");
   }
   else
   {
     clearScreen();
-    Serial.println("Connected to server!");
     tft.println("Connected to server!");
     // Make a HTTP request:
-    client.println("GET https://gameapi-2e9bb6e38339.herokuapp.com/api/v1/resources HTTP/1.1");
+    client.println("GET /api/v1/resources HTTP/1.1");
+    // client.println("Host: gameapi-2e9bb6e38339.herokuapp.com");
+
     client.println("Host: gameapi-2e9bb6e38339.herokuapp.com");
     client.println("Connection: close");
     client.println();
@@ -298,11 +298,19 @@ void getPlayerData()
   }
   // if there are incoming bytes available
   // from the server, read them and print them:
+  String response = ""; // create a String to store the response
   while (client.available())
   {
     char c = client.read();
     Serial.write(c);
+    response += c; // append each character to the response string
   }
+  clearScreen();
+  tft.setTextSize(2);
+  tft.println(response); // print the entire response
+  Serial.println(response);
+
+  delay(3000); // Wait for 2 seconds
 
   client.stop();
 }
