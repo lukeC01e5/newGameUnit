@@ -1,123 +1,91 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 #include <SPI.h>
-#include <WiFi.h>
-#include <ESPAsyncWebServer.h>
-#include <FS.h>
-#include <SPIFFS.h>
+#include <MFRC522.h> // Include the MFRC522 library for the RC522 RFID module
 
-#include "arduino_secrets.h" // Include the file with the WiFi credentials
-#include "object.h"          // Include the Player class
+// Pin definitions for the RFID module
+#define SS_PIN 13  // Slave Select pin for RFID
+#define RST_PIN 22 // Reset pin for RFID
 
-TFT_eSPI tft = TFT_eSPI(); // Create TFT object
-AsyncWebServer server(80); // Create AsyncWebServer object on port 80
-
-char ssid[] = SECRET_SSID;
-char pass[] = SECRET_PASS;
-
-String name = "";
-String characterType = "";
-
-void listSPIFFSFiles()
-{
-  fs::File root = SPIFFS.open("/");
-  fs::File file = root.openNextFile();
-  while (file)
-  {
-    Serial.print("FILE: ");
-    Serial.println(file.name());
-    file = root.openNextFile();
-  }
-}
-
-void clearDispaly()
-{
-  tft.fillScreen(TFT_BLACK);
-  tft.setCursor(0, 0);
-}
+TFT_eSPI tft = TFT_eSPI();        // Create TFT instance
+MFRC522 mfrc522(SS_PIN, RST_PIN); // Create MFRC522 instance
+MFRC522::MIFARE_Key key;
 
 void setup()
 {
   Serial.begin(115200);
+  Serial.println("Starting setup...");
+
+  // Initialize the TFT display
+  Serial.println("Initializing TFT...");
   tft.init();
   tft.setRotation(1);
   tft.setTextSize(2);
   tft.setTextColor(TFT_WHITE);
   tft.fillScreen(TFT_BLACK);
   tft.setCursor(0, 0);
-  tft.println("Initializing...");
+  tft.println("TFT initialized");
+  Serial.println("TFT initialized");
 
-  delay(1000);
-  clearDispaly();
+  // Initialize SPI
+  Serial.println("Initializing SPI...");
+  SPI.begin(25, 33, 26); // SPI with SCK=25, MISO=33, MOSI=26
+  Serial.println("SPI initialized");
+  tft.println("SPI OK");
 
-  Serial.println("Initializing SPIFFS...");
-  if (!SPIFFS.begin(true))
+  // Initialize RFID module
+  Serial.println("Initializing RFID...");
+  tft.println("RFID init...");
+  mfrc522.PCD_Init();
+  Serial.println("RFID initialized");
+  tft.println("RFID OK");
+
+  // Prepare the key (used both as key A and as key B)
+  // using FFFFFFFFFFFFh which is the default at chip delivery from the factory
+  for (byte i = 0; i < 6; i++)
   {
-    Serial.println("An Error has occurred while mounting SPIFFS");
-    tft.println("SPIFFS Mount Failed");
-    return;
+    key.keyByte[i] = 0xFF;
   }
-  Serial.println("SPIFFS mounted successfully");
-  tft.println("SPIFFS mounted");
-
-  listSPIFFSFiles(); // List files in SPIFFS to verify upload
-
-  delay(1000);
-  clearDispaly();
-
-  Serial.println("Connecting to WiFi...");
-  tft.println("Connecting to WiFi...");
-  WiFi.begin(ssid, pass);
-  int wifi_attempts = 0;
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(1000);
-    Serial.println("Connecting to WiFi...");
-    tft.print(".");
-    wifi_attempts++;
-    if (wifi_attempts > 20)
-    { // Timeout after 20 seconds
-      Serial.println("Failed to connect to WiFi");
-      tft.println("Failed to connect to WiFi");
-      return;
-    }
-  }
-  Serial.println("Connected to WiFi");
-  tft.println("Connected to WiFi");
-
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-            {
-    Serial.println("Serving /index.html");
-    request->send(SPIFFS, "/index.html", "text/html"); });
-
-  server.on("/submit", HTTP_POST, [&](AsyncWebServerRequest *request)
-            {
-    if (request->hasParam("name", true) && request->hasParam("characterType", true)) {
-      name = request->getParam("name", true)->value();
-      characterType = request->getParam("characterType", true)->value();
-      
-      std::vector<std::string> items = {"Sword", "Shield"};
-      std::vector<std::string> creatures = {"Dragon", "Phoenix"};
-      Player player(name.c_str(), "MainCreature", characterType.c_str(), items, creatures);
-
-      tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0);
-      tft.println(player.toString().c_str());
-
-      Serial.println("Player created:");
-      Serial.println(player.toString().c_str());
-    } else {
-      Serial.println("Missing parameters");
-      tft.println("Missing parameters");
-    }
-    request->send(200, "text/plain", "Player created"); });
-
-  server.begin();
-  Serial.println("HTTP server started");
-  tft.println("HTTP server started");
 }
 
 void loop()
 {
-  // Nothing to do here
+  // Look for new cards
+  if (!mfrc522.PICC_IsNewCardPresent())
+  {
+    Serial.println("No new card present.");
+    delay(50);
+    return;
+  }
+
+  if (!mfrc522.PICC_ReadCardSerial())
+  {
+    Serial.println("Failed to read card serial.");
+    delay(50);
+    return;
+  }
+
+  // Show UID on Serial Monitor
+  Serial.print("RFID Tag ID: ");
+  String rfidUID = "";
+  for (byte i = 0; i < mfrc522.uid.size; i++)
+  {
+    Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
+    Serial.print(mfrc522.uid.uidByte[i], HEX);
+    rfidUID += String(mfrc522.uid.uidByte[i], HEX);
+  }
+  Serial.println();
+
+  // Display RFID UID on TFT
+  tft.fillScreen(TFT_BLACK);
+  tft.setCursor(0, 0);
+  tft.println("RFID UID:");
+  tft.println(rfidUID);
+
+  // Halt PICC
+  mfrc522.PICC_HaltA();
+  // Stop encryption on PCD
+  mfrc522.PCD_StopCrypto1();
+
+  delay(2000); // Wait for 2 seconds before scanning again
 }
