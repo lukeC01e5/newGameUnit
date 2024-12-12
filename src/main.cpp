@@ -6,6 +6,7 @@
 #include <FS.h>
 #include <SPIFFS.h>
 #include <MFRC522.h>
+#include "RFIDData.h"
 
 // Include the file with the WiFi credentials
 #include "arduino_secrets.h"
@@ -28,19 +29,29 @@ String inputData = "";     // Variable to store input data from the web page
 bool dataReceived = false; // Flag to indicate data has been received
 bool tagDetected = false;  // Flag to indicate RFID tag is detected
 
+RFIDData rfidData; // Struct to hold parsed RFID data
+
 // Function to write data to RFID card
-bool writeToRFID(String data)
+bool writeToRFID(const String &data, byte blockAddr)
 {
   MFRC522::StatusCode status;
 
   // Authenticate with the card (using key A)
-  byte sector = 1;       // Sector to write to (avoid manufacturer block 0)
-  byte blockAddr = 4;    // Block address within the sector
-  byte trailerBlock = 7; // Trailer block for the sector
+  byte trailerBlock = (blockAddr / 4) * 4 + 3; // Trailer block for the sector
 
   // Default key for MIFARE cards
   for (byte i = 0; i < 6; i++)
     key.keyByte[i] = 0xFF;
+
+  Serial.print("Authenticating with trailer block ");
+  Serial.println(trailerBlock);
+
+  // Select the card
+  if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial())
+  {
+    Serial.println("No card selected or failed to read card serial.");
+    return false;
+  }
 
   // Authenticate
   status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, trailerBlock, &key, &(mfrc522.uid));
@@ -51,12 +62,16 @@ bool writeToRFID(String data)
     return false;
   }
 
+  Serial.println("Authentication successful");
+
   // Prepare data (must be 16 bytes)
   byte dataBlock[16];
   memset(dataBlock, 0, sizeof(dataBlock)); // Clear the array
   data.toCharArray((char *)dataBlock, 16);
 
   // Write data to the card
+  Serial.print("Writing to block ");
+  Serial.println(blockAddr);
   status = mfrc522.MIFARE_Write(blockAddr, dataBlock, 16);
   if (status != MFRC522::STATUS_OK)
   {
@@ -66,10 +81,77 @@ bool writeToRFID(String data)
     return false;
   }
 
+  Serial.println("Write successful");
+
   // Stop authentication
   mfrc522.PCD_StopCrypto1();
 
   return true;
+}
+
+// Function to read data from RFID card
+String readFromRFID(byte blockAddr)
+{
+  MFRC522::StatusCode status;
+
+  // Authenticate with the card (using key A)
+  byte trailerBlock = (blockAddr / 4) * 4 + 3; // Trailer block for the sector
+
+  // Default key for MIFARE cards
+  for (byte i = 0; i < 6; i++)
+    key.keyByte[i] = 0xFF;
+
+  Serial.print("Authenticating with trailer block ");
+  Serial.println(trailerBlock);
+
+  // Select the card
+  if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial())
+  {
+    Serial.println("No card selected or failed to read card serial.");
+    return "";
+  }
+
+  // Authenticate
+  status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, trailerBlock, &key, &(mfrc522.uid));
+  if (status != MFRC522::STATUS_OK)
+  {
+    Serial.print("PCD_Authenticate() failed: ");
+    Serial.println(mfrc522.GetStatusCodeName(status));
+    return "";
+  }
+
+  Serial.println("Authentication successful");
+
+  // Read data from the card
+  byte buffer[18];
+  byte size = sizeof(buffer);
+  Serial.print("Reading from block ");
+  Serial.println(blockAddr);
+  status = mfrc522.MIFARE_Read(blockAddr, buffer, &size);
+  if (status != MFRC522::STATUS_OK)
+  {
+    Serial.print("MIFARE_Read() failed: ");
+    Serial.println(mfrc522.GetStatusCodeName(status));
+    mfrc522.PCD_StopCrypto1();
+    return "";
+  }
+
+  Serial.println("Read successful");
+
+  // Stop authentication
+  mfrc522.PCD_StopCrypto1();
+
+  // Convert buffer to string
+  String data = "";
+  for (byte i = 0; i < 16; i++)
+  {
+    if (buffer[i] != 0) // Ignore null characters
+    {
+      data += (char)buffer[i];
+    }
+  }
+
+  return data;
 }
 
 void setup()
@@ -101,6 +183,36 @@ void setup()
     key.keyByte[i] = 0xFF;
   }
 
+  // Check for new RFID tag
+  while (!tagDetected)
+  {
+    if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
+    {
+      Serial.println("RFID tag detected");
+      tagDetected = true;
+
+      // Read and display RFID tag contents
+      String name = readFromRFID(1); // Block 1
+      Serial.print("Name: ");
+      Serial.println(name);
+
+      // Display name on TFT
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0);
+      tft.println("Name:");
+      tft.println(name);
+      delay(3000);
+    }
+    else
+    {
+      // No RFID tag detected
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0);
+      tft.println("No RFID tag detected");
+      delay(500);
+    }
+  }
+
   // Initialize SPIFFS
   Serial.println("Initializing SPIFFS...");
   if (!SPIFFS.begin(true))
@@ -111,30 +223,6 @@ void setup()
   }
   Serial.println("SPIFFS mounted successfully");
   tft.println("SPIFFS OK");
-
-  // Check for new RFID tag
-  while (!tagDetected)
-  {
-    if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
-    {
-      Serial.println("RFID tag detected");
-      tagDetected = true;
-
-      // Display "Weapon present" for 3 seconds
-      tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0);
-      tft.println("Weapon present");
-      delay(3000);
-    }
-    else
-    {
-      // No RFID tag detected
-      tft.fillScreen(TFT_BLACK);
-      tft.setCursor(0, 0);
-      tft.println("No weapon present");
-      delay(500);
-    }
-  }
 
   // Connect to WiFi
   Serial.println("Connecting to WiFi...");
@@ -174,8 +262,9 @@ void setup()
 
   server.on("/submit", HTTP_POST, [](AsyncWebServerRequest *request)
             {
-    if (request->hasParam("data", true)) {
-      inputData = request->getParam("data", true)->value();
+    if (request->hasParam("name", true)) {
+      String name = request->getParam("name", true)->value();
+      inputData = "name:" + name;
       dataReceived = true;
       Serial.println("Data received: " + inputData);
       tft.fillScreen(TFT_BLACK);
@@ -211,13 +300,31 @@ void loop()
   }
 
   // Write data to RFID card
-  if (dataReceived && writeToRFID(inputData))
+  if (dataReceived)
   {
-    Serial.println("Data written to RFID card");
-    tft.fillScreen(TFT_BLACK);
-    tft.setCursor(0, 0);
-    tft.println("Data written to");
-    tft.println("RFID card");
+    // Reinitialize RFID module before each write operation
+    Serial.println("Reinitializing RFID module...");
+    mfrc522.PCD_Init();
+
+    // Write name to block 1
+    String name = inputData.substring(inputData.indexOf("name:") + 5);
+    Serial.print("Writing name to block 1: ");
+    Serial.println(name);
+    if (writeToRFID(name, 1))
+    {
+      Serial.println("Name written to RFID card");
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0);
+      tft.println("Name written to");
+      tft.println("RFID card");
+    }
+    else
+    {
+      Serial.println("Failed to write name to RFID card");
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0);
+      tft.println("Write failed");
+    }
   }
   else if (!dataReceived)
   {
@@ -225,13 +332,6 @@ void loop()
     tft.fillScreen(TFT_BLACK);
     tft.setCursor(0, 0);
     tft.println("No data received");
-  }
-  else
-  {
-    Serial.println("Failed to write data to RFID card");
-    tft.fillScreen(TFT_BLACK);
-    tft.setCursor(0, 0);
-    tft.println("Write failed");
   }
 
   // Reset flags
