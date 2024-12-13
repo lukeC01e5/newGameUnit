@@ -7,6 +7,7 @@
 #include <SPIFFS.h>
 #include "RFIDFunctions.h"
 
+
 // Include the file with the WiFi credentials
 #include "arduino_secrets.h"
 
@@ -19,18 +20,14 @@ TFT_eSPI tft = TFT_eSPI();
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 MFRC522::MIFARE_Key key;
 
+AsyncWebServer server(80); // Create AsyncWebServer object on port 80
+
 // WiFi credentials
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS;
 
-// AsyncWebServer instance
-AsyncWebServer server(80);
-
-// Global variables for storing form data
-String name = "";
-String ageStr = "";
-String type = "";
-bool dataReceived = false;
+String inputData = "";     // Variable to store input data from the web page
+bool dataReceived = false; // Flag to indicate data has been received
 
 void setup()
 {
@@ -53,7 +50,7 @@ void setup()
     Serial.println("RFID reader initialized.");
     tft.println("RFID Initialized");
 
-    // Prepare the MIFARE key (default key)
+    // Prepare the MIFARE Key (assuming default key A)
     for (byte i = 0; i < 6; i++)
     {
         key.keyByte[i] = 0xFF;
@@ -104,6 +101,9 @@ void setup()
     server.on("/submit", HTTP_POST, [](AsyncWebServerRequest *request)
               {
         // Initialize variables for all expected fields
+        String name = "";
+        String ageStr = "";
+        String type = "";
         bool hasName = false, hasAge = false, hasType = false;
 
         // Extract name
@@ -125,85 +125,31 @@ void setup()
         }
 
         if (hasName && hasAge && hasType) {
+            // Format the data string as expected by parseRFIDData
+            String formattedData = "name:" + name + "||&age:" + ageStr + "||&characterType:" + type + "||&";
+            inputData = formattedData;
             dataReceived = true;
-            Serial.println("Data received from web form:");
-            Serial.println("Name: " + name);
-            Serial.println("Age: " + ageStr);
-            Serial.println("Type: " + type);
+            Serial.println("Data received: " + inputData);
             tft.fillScreen(TFT_BLACK);
             tft.setCursor(0, 0);
             tft.println("Data received:");
-            tft.println("Name: " + name);
-            tft.println("Age: " + ageStr);
-            tft.println("Type: " + type);
-            request->send(200, "text/plain", "Data received. Please present your RFID card.");
+            tft.println(inputData);
+            request->send(200, "text/plain", "Data received and will be written to the RFID card.");
         } else {
             Serial.println("Incomplete data received");
             tft.fillScreen(TFT_BLACK);
             tft.setCursor(0, 0);
-            tft.println("Incomplete data");
+            tft.println("Incomplete data received");
             request->send(400, "text/plain", "Incomplete data received");
         } });
 
     server.begin();
     Serial.println("HTTP server started");
-
-    // Initial RFID card detection
-    Serial.println("Waiting for RFID card...");
-    tft.fillScreen(TFT_BLACK);
-    tft.setCursor(0, 0);
-    tft.println("Place RFID card");
-    tft.println("to start");
-
-    // Wait for an RFID card to be present
-    while (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial())
-    {
-        delay(50);
-    }
-
-    // Read data from the RFID card
-    String block1Data = readFromRFID(1);
-    String block2Data = readFromRFID(2);
-    String readData = block1Data + block2Data;
-
-    if (readData != "")
-    {
-        Serial.print("Data read from RFID card: ");
-        Serial.println(readData);
-        tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0);
-        tft.println("Read Data:");
-        tft.println(readData);
-
-        // Parse the data
-        RFIDData rfidData;
-        parseRFIDData(readData, rfidData);
-
-        // Display parsed data
-        tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0);
-        tft.println("RFID Data:");
-        tft.println("Name: " + rfidData.name);
-        tft.println("Age: " + String(rfidData.age));
-        tft.println("Type: " + rfidData.characterType);
-    }
-    else
-    {
-        Serial.println("No data read from RFID card");
-        tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0);
-        tft.println("No data read");
-        tft.println("from RFID card");
-    }
-
-    // Halt PICC and stop encryption
-    mfrc522.PICC_HaltA();
-    mfrc522.PCD_StopCrypto1();
 }
 
 void loop()
 {
-    // Handle any data received from the web interface
+    // Wait until data is received
     if (dataReceived)
     {
         // Reinitialize RFID module before each write operation
@@ -211,59 +157,57 @@ void loop()
         mfrc522.PCD_Init();
 
         // Wait for an RFID card
-        Serial.println("Ready to write to RFID card. Place the card now.");
-        tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0);
-        tft.println("Place RFID card");
-        tft.println("to write data");
-
+        Serial.println("Waiting for RFID card...");
         while (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial())
         {
             delay(50);
         }
 
-        // Prepare data
-        String block1Data = "*&" + name + "." + ageStr + "&*";
-        String block2Data = "*&" + type + "&*";
+        // Write data to block 1
+        Serial.print("Writing to block 1: ");
+        Serial.println(inputData);
 
-        // Ensure data fits into 16 bytes
-        if (block1Data.length() > 16)
+        if (writeToRFID(inputData, 1))
         {
-            block1Data = block1Data.substring(0, 16);
-        }
-        if (block2Data.length() > 16)
-        {
-            block2Data = block2Data.substring(0, 16);
-        }
-
-        // Write to block 1
-        if (writeToRFID(block1Data, 1))
-        {
-            Serial.println("Data written to block 1");
+            Serial.println("Data written to RFID card");
             tft.fillScreen(TFT_BLACK);
             tft.setCursor(0, 0);
             tft.println("Data written to");
-            tft.println("block 1");
+            tft.println("RFID card");
         }
         else
         {
-            Serial.println("Failed to write to block 1");
+            Serial.println("Failed to write data to RFID card");
             tft.fillScreen(TFT_BLACK);
             tft.setCursor(0, 0);
-            tft.println("Write to block 1 failed");
+            tft.println("Write failed");
         }
 
-        // Write to block 2
-        if (writeToRFID(block2Data, 2))
+        // Read back the data to verify
+        String readData = readFromRFID(1);
+        if (readData != "")
         {
-            Serial.println("Data written to block 2");
-            tft.println("Data written to");
-            tft.println("block 2");
+            Serial.print("Data read from RFID card: ");
+            Serial.println(readData);
+            tft.fillScreen(TFT_BLACK);
+            tft.setCursor(0, 0);
+            tft.println("Read Data:");
+            tft.println(readData);
+
+            RFIDData rfidData;
+            parseRFIDData(readData, rfidData);
+
+            // Display parsed data
+            tft.fillScreen(TFT_BLACK);
+            tft.setCursor(0, 0);
+            tft.println("RFID Data:");
+            tft.println("Name: " + rfidData.name);
+            tft.println("Age: " + String(rfidData.age));
+            tft.println("Type: " + rfidData.characterType);
         }
         else
         {
-            Serial.println("Failed to write to block 2");
-            tft.println("Write to block 2 failed");
+            Serial.println("No data read from RFID card");
         }
 
         // Reset flags
@@ -271,66 +215,4 @@ void loop()
         mfrc522.PICC_HaltA();
         mfrc522.PCD_StopCrypto1();
     }
-    else
-    {
-        // Check for RFID card to read
-        if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
-        {
-            Serial.println("RFID tag detected");
-
-            // Read data from block 1
-            String block1Data = readFromRFID(1);
-
-            // Read data from block 2
-            String block2Data = readFromRFID(2);
-
-            // Combine data
-            String readData = block1Data + block2Data;
-
-            // Process the combined data
-            if (readData != "")
-            {
-                Serial.print("Data read from RFID card: ");
-                Serial.println(readData);
-
-                tft.fillScreen(TFT_BLACK);
-                tft.setCursor(0, 0);
-                tft.println("Read Data:");
-                tft.println(readData);
-
-                // Parse the data
-                RFIDData rfidData;
-                parseRFIDData(readData, rfidData);
-
-                // Display parsed data
-                tft.fillScreen(TFT_BLACK);
-                tft.setCursor(0, 0);
-                tft.println("RFID Data:");
-                tft.println("Name: " + rfidData.name);
-                tft.println("Age: " + String(rfidData.age));
-                tft.println("Type: " + rfidData.characterType);
-            }
-            else
-            {
-                Serial.println("No data read from RFID card");
-                tft.fillScreen(TFT_BLACK);
-                tft.setCursor(0, 0);
-                tft.println("No data read");
-                tft.println("from RFID card");
-            }
-
-            // Halt the PICC and stop encryption
-            mfrc522.PICC_HaltA();
-            mfrc522.PCD_StopCrypto1();
-
-            // Wait for card removal
-            while (mfrc522.PICC_IsNewCardPresent() || mfrc522.PICC_ReadCardSerial())
-            {
-                delay(50);
-            }
-        }
-    }
-
-    // Small delay to prevent overwhelming the CPU
-    delay(50);
 }

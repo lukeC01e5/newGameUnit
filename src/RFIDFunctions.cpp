@@ -1,4 +1,5 @@
 #include "RFIDFunctions.h"
+#include "globals.h"
 
 String readFromRFID(byte blockAddr) {
     MFRC522::StatusCode status;
