@@ -132,12 +132,13 @@
  C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_hw_support/include/soc/esp32/spiram.h \
  C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/cores/esp32/io_pin_remap.h \
  C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
+ src/CharacterTypes.h src/globals.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/libraries/SPI/src/SPI.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp32-hal-spi.h \
  .pio/libdeps/ttgo-lora32-v1/MFRC522/src/MFRC522.h \
  .pio/libdeps/ttgo-lora32-v1/MFRC522/src/require_cpp11.h \
  .pio/libdeps/ttgo-lora32-v1/MFRC522/src/deprecated.h \
- C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/libraries/SPI/src/SPI.h \
- C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp32-hal-spi.h \
- src/globals.h .pio/libdeps/ttgo-lora32-v1/TFT_eSPI/TFT_eSPI.h \
+ .pio/libdeps/ttgo-lora32-v1/TFT_eSPI/TFT_eSPI.h \
  C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/cores/esp32/Print.h \
  .pio/libdeps/ttgo-lora32-v1/TFT_eSPI/User_Setup_Select.h \
  .pio/libdeps/ttgo-lora32-v1/TFT_eSPI/User_Setups/Setup25_TTGO_T_Display.h \
@@ -232,4 +233,72 @@
  .pio/libdeps/ttgo-lora32-v1/TFT_eSPI/Fonts/Custom/Yellowtail_32.h \
  .pio/libdeps/ttgo-lora32-v1/TFT_eSPI/Extensions/Smooth_font.h \
  .pio/libdeps/ttgo-lora32-v1/TFT_eSPI/Extensions/Button.h \
- .pio/libdeps/ttgo-lora32-v1/TFT_eSPI/Extensions/Sprite.h
+ .pio/libdeps/ttgo-lora32-v1/TFT_eSPI/Extensions/Sprite.h \
+ .pio/libdeps/ttgo-lora32-v1/ESPAsyncWebServer-esphome/src/ESPAsyncWebServer.h \
+ .pio/libdeps/ttgo-lora32-v1/ESPAsyncWebServer-esphome/src/StringArray.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFi.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/cores/esp32/IPv6Address.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiType.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_wifi/include/esp_wifi_types.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_wifi/include/esp_private/esp_wifi_types_private.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_hw_support/include/esp_interface.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_event/include/esp_event_base.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiSTA.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiGeneric.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_event/include/esp_event.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_event/include/esp_event_base.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_event/include/esp_event_legacy.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_netif/include/esp_netif.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_netif/include/esp_netif_ip_addr.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_netif/include/esp_netif_types.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_netif/include/esp_netif_defaults.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_eth/include/esp_eth_netif_glue.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_eth/include/esp_eth.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_eth/include/esp_eth_com.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/hal/include/hal/eth_types.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_eth/include/esp_eth_mac.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_eth/include/esp_eth_phy.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/tcpip_adapter/include/tcpip_adapter.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/tcpip_adapter/include/tcpip_adapter_types.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/lwip/src/include/lwip/ip_addr.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/lwip/src/include/lwip/opt.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/port/esp32/include/lwipopts.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/newlib/platform_include/sys/ioctl.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_system/include/esp_task.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include/esp_additions/freertos/FreeRTOSConfig.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/port/esp32/include/netif/dhcp_state.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/port/esp32/include/sntp/sntp_get_set_time.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/lwip/src/include/lwip/debug.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/lwip/src/include/lwip/arch.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/port/esp32/include/arch/cc.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/port/esp32/include/arch/sys_arch.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/port/esp32/include/arch/vfs_lwip.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/lwip/src/include/lwip/def.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/lwip/src/include/lwip/ip4_addr.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/lwip/src/include/lwip/ip6_addr.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/lwip/src/include/lwip/def.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/lwip/src/include/lwip/ip6_zone.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/include/apps/dhcpserver/dhcpserver.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/lwip/src/include/lwip/err.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_netif/include/esp_netif_sta_list.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/esp_wifi/include/esp_smartconfig.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/wifi_provisioning/include/wifi_provisioning/manager.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/protocomm/include/common/protocomm.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/protocomm/include/security/protocomm_security.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/wifi_provisioning/include/wifi_provisioning/wifi_config.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiAP.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiScan.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiClient.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/cores/esp32/Client.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiServer.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/cores/esp32/Server.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src/WiFiUdp.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/cores/esp32/Udp.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/cores/esp32/cbuf.h \
+ .pio/libdeps/ttgo-lora32-v1/AsyncTCP-esphome/src/AsyncTCP.h \
+ C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/lwip/lwip/src/include/lwip/pbuf.h \
+ .pio/libdeps/ttgo-lora32-v1/ESPAsyncWebServer-esphome/src/WebResponseImpl.h \
+ .pio/libdeps/ttgo-lora32-v1/ESPAsyncWebServer-esphome/src/WebHandlerImpl.h \
+ .pio/libdeps/ttgo-lora32-v1/ESPAsyncWebServer-esphome/src/AsyncWebSocket.h \
+ .pio/libdeps/ttgo-lora32-v1/ESPAsyncWebServer-esphome/src/AsyncWebSynchronization.h \
+ .pio/libdeps/ttgo-lora32-v1/ESPAsyncWebServer-esphome/src/AsyncEventSource.h
