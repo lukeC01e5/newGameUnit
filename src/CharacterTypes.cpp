@@ -1,29 +1,30 @@
 #include "CharacterTypes.h"
 
-// Array of character type names indexed by CharacterType enum
-const char* characterTypeNames[] = {
-    "Unknown", // 0
-    "Elf",     // 1
-    "Dwarf",   // 2
-    "Wizard",  // 3
-    "Knight",  // 4
-    "Witch",   // 5
-    "Mermaid", // 6
-    "Ogre"     // 7
-};
-
-// Ensure the array size matches the enum count
-static_assert(sizeof(characterTypeNames) / sizeof(characterTypeNames[0]) == CHARACTER_TYPE_COUNT, "CharacterType names array size does not match enum count.");
-
 /**
- * @brief Returns the string name of the CharacterType enum.
+ * @brief Returns the name of the CharacterType enum.
  *
- * @param type The CharacterType.
- * @return The name as an Arduino String.
+ * @param type The CharacterType enum.
+ * @return The corresponding name as a String.
  */
-String getCharacterTypeName(CharacterType type) {
-    if (type >= UNKNOWN && type < CHARACTER_TYPE_COUNT) {
-        return String(characterTypeNames[type]);
+String getCharacterTypeName(CharacterType type)
+{
+    switch (type)
+    {
+    case ELF:
+        return "Elf";
+    case DWARF:
+        return "Dwarf";
+    case WIZARD:
+        return "Wizard";
+    case KNIGHT:
+        return "Knight";
+    case WITCH:
+        return "Witch";
+    case MERMAID:
+        return "Mermaid";
+    case OGRE:
+        return "Ogre";
+    default:
+        return "Unknown";
     }
-    return "Unknown";
 }

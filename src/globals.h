@@ -12,7 +12,7 @@
 #define RST_PIN 22 // Reset pin for RFID
 
 // Define block addresses based on sector
-#define SECTOR1_BLOCK1 4 // Block 1 in Sector 1
+#define SECTOR1_BLOCK1 1 // Block 1 in Sector 1
 
 // External instances
 extern TFT_eSPI tft;

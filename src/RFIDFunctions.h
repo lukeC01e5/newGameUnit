@@ -17,6 +17,6 @@ struct RFIDData
 bool writeToRFID(const String &data, byte blockAddr);
 String readFromRFID(byte blockAddr);
 void parseRFIDData(const String &blockData, RFIDData &rfidData);
-String getCharacterTypeName(CharacterType type);
+bool testWriteAndRead();
 
 #endif // RFID_FUNCTIONS_H

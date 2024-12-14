@@ -50,8 +50,6 @@ bool writeToRFID(const String &data, byte blockAddr)
     }
 
     Serial.println("Write operation successful.");
-
-    // Stop authentication
     mfrc522.PICC_HaltA();
     mfrc522.PCD_StopCrypto1();
 
@@ -148,3 +146,55 @@ void parseRFIDData(const String &blockData, RFIDData &rfidData)
     }
     rfidData.gender = blockData.charAt(thirdComma + 1);
 }
+
+/**
+ * @brief Test function to write and read back data from RFID.
+ *
+ * @return true if both write and read operations are successful and data matches, false otherwise.
+ */
+/*
+bool testWriteAndRead()
+
+
+{
+    Serial.println("Starting Test Write and Read Operation...");
+
+    // Define test data
+    String testData = "Test,25,1,M     "; // Exactly 16 characters
+    // Ensure length is 16
+    if (testData.length() != 16)
+    {
+        Serial.println("Test data is not 16 characters long.");
+        return false;
+    }
+
+    // Write test data to Block 5
+    if (!writeToRFID(testData, SECTOR1_BLOCK1))
+    {
+        Serial.println("Test Write Failed.");
+        return false;
+    }
+
+    // Read data back from Block 5
+    String readData = readFromRFID(SECTOR1_BLOCK1);
+    if (readData == "Invalid block data format")
+    {
+        Serial.println("Test Read Failed.");
+        return false;
+    }
+
+    // Compare written and read data
+    if (readData.equals("Test,25,1,M"))
+    {
+        Serial.println("Test Write and Read Successful.");
+        return true;
+    }
+    else
+    {
+        Serial.print("Test Data Mismatch. Read Data: '");
+        Serial.print(readData);
+        Serial.println("'");
+        return false;
+    }
+}
+*/

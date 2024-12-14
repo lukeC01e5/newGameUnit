@@ -61,9 +61,9 @@ void parseInputData(const String &input, RFIDData &rfidData)
 enum SystemState
 {
     IDLE,
-    WAITING_FOR_CARD,
-    WRITING_DATA,
-    READING_DATA
+    SCANNING_RF,
+    INITIALIZING_WIFI,
+    WRITING_DATA
 };
 
 SystemState currentState = IDLE;
@@ -202,7 +202,7 @@ void setup()
 
     // Initialize TFT display
     tft.init();
-    tft.setRotation(1); // Adjust rotation as needed
+    tft.setRotation(3); // Rotate the screen 180 degrees
     tft.fillScreen(TFT_BLACK);
     tft.setTextSize(2);
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -235,7 +235,19 @@ void setup()
     }
     Serial.println("SPIFFS mounted successfully.");
     tft.println("SPIFFS Mounted");
-
+    /*
+        // **Call Test Function**
+        if (testWriteAndRead())
+        {
+            Serial.println("Test Write and Read Passed.");
+            tft.println("Test Passed.");
+        }
+        else
+        {
+            Serial.println("Test Write and Read Failed.");
+            tft.println("Test Failed.");
+        }
+    */
     // Connect to WiFi
     WiFi.begin(ssid, pass);
     int wifi_attempts = 0;
@@ -285,6 +297,54 @@ void loop()
     switch (currentState)
     {
     case IDLE:
+        // Continuously scan for RFID cards
+        if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
+        {
+            Serial.println("RFID card detected.");
+            tft.println("RFID card detected.");
+
+            // Read data from RFID
+            String readData = readFromRFID(SECTOR1_BLOCK1);
+            Serial.print("Data read from Block1: ");
+            Serial.println(readData);
+            tft.println("Data read from RFID.");
+
+            // Parse the read data
+            RFIDData readRFIDData;
+            parseRFIDData(readData, readRFIDData);
+
+            if (readRFIDData.name.length() == 0)
+            {
+                Serial.println("Invalid block data format.");
+                tft.println("Invalid data format.");
+            }
+            else
+            {
+                // Display parsed data
+                Serial.println("Parsed RFID Data:");
+                Serial.print("Name: ");
+                Serial.println(readRFIDData.name);
+                Serial.print("Age: ");
+                Serial.println(readRFIDData.age);
+                Serial.print("Type: ");
+                Serial.println(getCharacterTypeName(readRFIDData.characterType));
+                Serial.print("Gender: ");
+                Serial.println(readRFIDData.gender);
+
+                tft.fillScreen(TFT_BLACK);
+                tft.setCursor(0, 0);
+                tft.println("RFID Data:");
+                tft.println("Name: " + readRFIDData.name);
+                tft.println("Age: " + String(readRFIDData.age));
+                tft.println("Type: " + getCharacterTypeName(readRFIDData.characterType));
+                tft.println("Gender: " + String(readRFIDData.gender));
+            }
+
+            // Halt and stop encryption
+            mfrc522.PICC_HaltA();
+            mfrc522.PCD_StopCrypto1();
+        }
+
         // Check if data has been received from the web server
         if (dataReceived)
         {
@@ -295,23 +355,8 @@ void loop()
             mfrc522.PCD_Init();
             Serial.println("RFID module reinitialized.");
 
-            // Transition to waiting for card state
-            currentState = WAITING_FOR_CARD;
-            lastCheckTime = millis();
-        }
-        break;
-
-    case WAITING_FOR_CARD:
-        // Periodically check for RFID card presence
-        if (millis() - lastCheckTime >= checkInterval)
-        {
-            lastCheckTime = millis();
-            if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
-            {
-                Serial.println("RFID card detected.");
-                tft.println("RFID card detected.");
-                currentState = WRITING_DATA;
-            }
+            // Transition to writing state
+            currentState = WRITING_DATA;
         }
         break;
 
@@ -340,13 +385,14 @@ void loop()
         Serial.print("Formatted Data String: '");
         Serial.print(dataString);
         Serial.println("'");
+        tft.println("Formatted Data:");
 
         // Write to RFID block
         if (writeToRFID(dataString, SECTOR1_BLOCK1))
         {
             Serial.println("Data successfully written to RFID.");
-            tft.println("Data written to Block 1.");
-            currentState = READING_DATA;
+            tft.println("Data written to Block 5.");
+            currentState = IDLE; // Return to IDLE after writing
         }
         else
         {
@@ -354,58 +400,6 @@ void loop()
             tft.println("Write failed.");
             currentState = IDLE;
         }
-
-        break;
-    }
-
-    case READING_DATA:
-    {
-        Serial.println("Reading back data from RFID card.");
-        tft.println("Reading RFID data...");
-
-        String readData = readFromRFID(SECTOR1_BLOCK1);
-        Serial.print("Data read from Block1: ");
-        Serial.println(readData);
-        tft.println("Data read from RFID.");
-
-        // Parse the read data
-        RFIDData readRFIDData;
-        parseRFIDData(readData, readRFIDData);
-
-        if (readRFIDData.name.length() == 0)
-        {
-            Serial.println("Invalid block data format.");
-            tft.println("Invalid data format.");
-        }
-        else
-        {
-            // Display parsed data
-            Serial.println("Parsed RFID Data:");
-            Serial.print("Name: ");
-            Serial.println(readRFIDData.name);
-            Serial.print("Age: ");
-            Serial.println(readRFIDData.age);
-            Serial.print("Type: ");
-            Serial.println(getCharacterTypeName(readRFIDData.characterType));
-            Serial.print("Gender: ");
-            Serial.println(readRFIDData.gender);
-
-            tft.fillScreen(TFT_BLACK);
-            tft.setCursor(0, 0);
-            tft.println("RFID Data:");
-            tft.println("Name: " + readRFIDData.name);
-            tft.println("Age: " + String(readRFIDData.age));
-            tft.println("Type: " + getCharacterTypeName(readRFIDData.characterType));
-            tft.println("Gender: " + String(readRFIDData.gender));
-        }
-
-        // Reset flags and return to idle state
-        dataReceived = false;
-        currentState = IDLE;
-
-        // Halt and stop encryption
-        mfrc522.PICC_HaltA();
-        mfrc522.PCD_StopCrypto1();
 
         break;
     }
