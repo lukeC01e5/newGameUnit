@@ -1,530 +1,354 @@
-#include "globals.h"
-#include "CharacterTypes.h" // Include the CharacterTypes library
 #include <Arduino.h>
+#include <TFT_eSPI.h>
 #include <SPI.h>
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <FS.h>
 #include <SPIFFS.h>
-#include "RFIDFunctions.h"
+#include <MFRC522.h>
+#include "RFIDData.h"
 
 // Include the file with the WiFi credentials
 #include "arduino_secrets.h"
 
-// Initialize external instances
-TFT_eSPI tft = TFT_eSPI();
-MFRC522 mfrc522(SS_PIN, RST_PIN);
-MFRC522::MIFARE_Key key;
+// Pin definitions for the RFID module
+#define SS_PIN 13  // Slave Select pin for RFID
+#define RST_PIN 22 // Reset pin for RFID
+
+TFT_eSPI tft = TFT_eSPI();        // Create TFT instance
+MFRC522 mfrc522(SS_PIN, RST_PIN); // Create MFRC522 instance
+MFRC522::MIFARE_Key key;          // Create MIFARE_Key instance
+
 AsyncWebServer server(80); // Create AsyncWebServer object on port 80
 
 // WiFi credentials
-const char *ssid = SECRET_SSID;
-const char *pass = SECRET_PASS;
+char ssid[] = SECRET_SSID;
+char pass[] = SECRET_PASS;
 
-// Variables
 String inputData = "";     // Variable to store input data from the web page
 bool dataReceived = false; // Flag to indicate data has been received
+bool tagDetected = false;  // Flag to indicate RFID tag is detected
 
-/**
- * @brief Parses the inputData string into the RFIDData struct.
- *
- * @param input The raw input data string from the web interface.
- * @param rfidData The RFIDData struct to populate.
- */
-void parseInputData(const String &input, RFIDData &rfidData)
+RFIDData rfidData; // Struct to hold parsed RFID data
+
+// Function to write data to RFID card
+bool writeToRFID(const String &data, byte blockAddr)
 {
-    // Expected format: "name,age,typeIndex,gender"
-    int firstComma = input.indexOf(',');
-    int secondComma = input.indexOf(',', firstComma + 1);
-    int thirdComma = input.indexOf(',', secondComma + 1);
+  MFRC522::StatusCode status;
 
-    if (firstComma == -1 || secondComma == -1 || thirdComma == -1)
-    {
-        Serial.println("Invalid input format");
-        return;
-    }
+  // Authenticate with the card (using key A)
+  byte trailerBlock = (blockAddr / 4) * 4 + 3; // Trailer block for the sector
 
-    rfidData.name = input.substring(0, firstComma);
-    rfidData.age = input.substring(firstComma + 1, secondComma).toInt();
-    int typeIndex = input.substring(secondComma + 1, thirdComma).toInt();
-    if (typeIndex >= ELF && typeIndex < CHARACTER_TYPE_COUNT)
-    {
-        rfidData.characterType = static_cast<CharacterType>(typeIndex);
-    }
-    else
-    {
-        rfidData.characterType = UNKNOWN;
-    }
-    rfidData.gender = input.charAt(thirdComma + 1);
+  // Default key for MIFARE cards
+  for (byte i = 0; i < 6; i++)
+    key.keyByte[i] = 0xFF;
+
+  Serial.print("Authenticating with trailer block ");
+  Serial.println(trailerBlock);
+
+  // Select the card
+  if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial())
+  {
+    Serial.println("No card selected or failed to read card serial.");
+    return false;
+  }
+
+  // Authenticate
+  status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, trailerBlock, &key, &(mfrc522.uid));
+  if (status != MFRC522::STATUS_OK)
+  {
+    Serial.print("PCD_Authenticate() failed: ");
+    Serial.println(mfrc522.GetStatusCodeName(status));
+    return false;
+  }
+
+  Serial.println("Authentication successful");
+
+  // Prepare data (must be 16 bytes)
+  byte dataBlock[16];
+  memset(dataBlock, 0, sizeof(dataBlock)); // Clear the array
+  data.toCharArray((char *)dataBlock, 16);
+
+  // Write data to the card
+  Serial.print("Writing to block ");
+  Serial.println(blockAddr);
+  status = mfrc522.MIFARE_Write(blockAddr, dataBlock, 16);
+  if (status != MFRC522::STATUS_OK)
+  {
+    Serial.print("MIFARE_Write() failed: ");
+    Serial.println(mfrc522.GetStatusCodeName(status));
+    mfrc522.PCD_StopCrypto1();
+    return false;
+  }
+
+  Serial.println("Write successful");
+
+  // Stop authentication
+  mfrc522.PCD_StopCrypto1();
+
+  // After reading or writing
+  mfrc522.PICC_HaltA();      // Halt PICC
+  mfrc522.PCD_StopCrypto1(); // Stop encryption on PCD
+
+  return true;
 }
 
-enum SystemState
+// Function to read data from RFID card
+String readFromRFID(byte blockAddr)
 {
-    IDLE,
-    SCANNING_RF,
-    INITIALIZING_WIFI,
-    WRITING_DATA
-};
+  MFRC522::StatusCode status;
 
-SystemState currentState = IDLE;
-unsigned long lastCheckTime = 0;
-const unsigned long checkInterval = 500; // Interval in milliseconds to check for card presence
+  // Authenticate with the card (using key A)
+  byte trailerBlock = (blockAddr / 4) * 4 + 3; // Trailer block for the sector
 
-/**
- * @brief Handles form submission and processes the data.
- *
- * @param request The incoming web request.
- */
-void handleFormSubmit(AsyncWebServerRequest *request)
-{
-    // Initialize variables for all expected fields
-    String name = "";
-    String ageStr = "";
-    String typeStr = "";
-    char gender = 'N'; // Default value
+  // Default key for MIFARE cards
+  for (byte i = 0; i < 6; i++)
+    key.keyByte[i] = 0xFF;
 
-    bool hasName = false, hasAge = false, hasType = false, hasGender = false;
+  Serial.print("Authenticating with trailer block ");
+  Serial.println(trailerBlock);
 
-    // Extract name
-    if (request->hasParam("name", true))
+  // Authenticate
+  status = mfrc522.PCD_Authenticate(
+      MFRC522::PICC_CMD_MF_AUTH_KEY_A,
+      trailerBlock,
+      &key,
+      &(mfrc522.uid));
+
+  if (status != MFRC522::STATUS_OK)
+  {
+    Serial.print("Authentication failed: ");
+    Serial.println(mfrc522.GetStatusCodeName(status));
+    mfrc522.PCD_StopCrypto1(); // Stop encryption on PCD
+    return "";
+  }
+
+  Serial.println("Authentication successful");
+
+  // Read data from the card
+  byte buffer[18];
+  byte size = sizeof(buffer);
+
+  Serial.print("Reading from block ");
+  Serial.println(blockAddr);
+
+  status = mfrc522.MIFARE_Read(blockAddr, buffer, &size);
+  if (status != MFRC522::STATUS_OK)
+  {
+    Serial.print("MIFARE_Read() failed: ");
+    Serial.println(mfrc522.GetStatusCodeName(status));
+    mfrc522.PCD_StopCrypto1(); // Stop encryption on PCD
+    return "";
+  }
+
+  Serial.println("Read successful");
+
+  // Stop encryption on PCD
+  mfrc522.PCD_StopCrypto1();
+
+  // After reading or writing
+  mfrc522.PICC_HaltA();      // Halt PICC
+  mfrc522.PCD_StopCrypto1(); // Stop encryption on PCD
+
+  // Convert buffer to string
+  String data = "";
+  for (byte i = 0; i < 16; i++)
+  {
+    if (buffer[i] != 0) // Ignore null characters
     {
-        name = request->getParam("name", true)->value();
-        hasName = true;
+      data += (char)buffer[i];
     }
+  }
 
-    // Extract age
-    if (request->hasParam("age", true))
-    {
-        ageStr = request->getParam("age", true)->value();
-        hasAge = true;
-    }
-
-    // Extract character type
-    if (request->hasParam("type", true))
-    {
-        typeStr = request->getParam("type", true)->value();
-        hasType = true;
-    }
-
-    // Extract gender
-    if (request->hasParam("gender", true))
-    {
-        String genderStr = request->getParam("gender", true)->value();
-        if (genderStr.length() > 0)
-        {
-            gender = genderStr.charAt(0);
-            hasGender = true;
-        }
-    }
-
-    if (hasName && hasAge && hasType && hasGender)
-    {
-        // Convert character type to index using enum
-        CharacterType typeEnum;
-        if (typeStr.equalsIgnoreCase("Elf"))
-        {
-            typeEnum = ELF;
-        }
-        else if (typeStr.equalsIgnoreCase("Dwarf"))
-        {
-            typeEnum = DWARF;
-        }
-        else if (typeStr.equalsIgnoreCase("Wizard"))
-        {
-            typeEnum = WIZARD;
-        }
-        else if (typeStr.equalsIgnoreCase("Knight"))
-        {
-            typeEnum = KNIGHT;
-        }
-        else if (typeStr.equalsIgnoreCase("Witch"))
-        {
-            typeEnum = WITCH;
-        }
-        else if (typeStr.equalsIgnoreCase("Mermaid"))
-        {
-            typeEnum = MERMAID;
-        }
-        else if (typeStr.equalsIgnoreCase("Ogre"))
-        {
-            typeEnum = OGRE;
-        }
-        else
-        {
-            typeEnum = UNKNOWN;
-        }
-
-        int typeIndex = static_cast<int>(typeEnum);
-        if (typeEnum == UNKNOWN)
-        {
-            Serial.println("Invalid character type received");
-            request->send(400, "text/plain", "Invalid character type received");
-            return;
-        }
-
-        // Format the data string as "Name,Age,TypeIndex,Gender"
-        String formattedData = name + "," + ageStr + "," + String(typeIndex) + "," + String(gender);
-
-        // Ensure the formattedData is exactly 16 characters by padding or trimming
-        while (formattedData.length() < 16)
-        {
-            formattedData += ' ';
-        }
-        if (formattedData.length() > 16)
-        {
-            formattedData = formattedData.substring(0, 16);
-        }
-
-        inputData = formattedData;
-        dataReceived = true;
-        Serial.println("Data received: " + inputData);
-        tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0);
-        tft.println("Data received:");
-        tft.println(inputData);
-        request->send(200, "text/plain", "Data received and will be written to the RFID card.");
-    }
-    else
-    {
-        Serial.println("Incomplete data received");
-        tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0);
-        tft.println("Incomplete data received");
-        request->send(400, "text/plain", "Incomplete data received");
-    }
-}
-
-// Inside your request handler
-void handleMakeProfileRequest(AsyncWebServerRequest *request)
-{
-    Serial.println("Received make profile request");
-
-    // Check if the required parameters are present
-    if (!request->hasParam("name", true) || !request->hasParam("age", true) ||
-        !request->hasParam("type", true) || !request->hasParam("gender", true))
-    {
-        Serial.println("Missing one or more parameters");
-        request->send(400, "text/plain", "Missing required parameters");
-        return;
-    }
-
-    // Retrieve parameters from POST body
-    String name = request->getParam("name", true)->value();
-    String ageStr = request->getParam("age", true)->value();
-    String typeStr = request->getParam("type", true)->value();
-    String genderStr = request->getParam("gender", true)->value();
-
-    // Validate and process parameters
-    if (name.length() == 0)
-    {
-        Serial.println("Name cannot be empty");
-        request->send(400, "text/plain", "Name cannot be empty");
-        return;
-    }
-
-    int age = ageStr.toInt();
-    if (age <= 0)
-    {
-        Serial.println("Invalid age");
-        request->send(400, "text/plain", "Invalid age");
-        return;
-    }
-
-    char gender = genderStr.charAt(0);
-    if (gender != 'M' && gender != 'F')
-    {
-        Serial.println("Invalid gender");
-        request->send(400, "text/plain", "Invalid gender");
-        return;
-    }
-
-    CharacterType typeEnum = getCharacterTypeByName(typeStr);
-    if (typeEnum == UNKNOWN)
-    {
-        Serial.println("Invalid character type received");
-        request->send(400, "text/plain", "Invalid character type received");
-        return;
-    }
-
-    int typeIndex = static_cast<int>(typeEnum);
-
-    // Format the data string as "Name,Age,TypeIndex,Gender"
-    String formattedData = name + "," + String(age) + "," + String(typeIndex) + "," + String(gender);
-
-    // Ensure the formattedData is exactly 16 characters by padding or trimming
-    formattedData = formattedData.substring(0, 16);
-    while (formattedData.length() < 16)
-    {
-        formattedData += ' ';
-    }
-
-    inputData = formattedData;
-    Serial.print("Formatted Data String: '");
-    Serial.print(formattedData);
-    Serial.println("'");
-
-    // Send a success response
-    request->send(200, "text/plain", "Profile created successfully");
-}
-
-/**
- * @brief Converts a character type name to the corresponding CharacterType enum value.
- *
- * @param typeName The name of the character type.
- * @return The corresponding CharacterType enum value.
- */
-CharacterType getCharacterTypeByName(const String &typeName)
-{
-    if (typeName.equalsIgnoreCase("Elf"))
-    {
-        return ELF;
-    }
-    else if (typeName.equalsIgnoreCase("Dwarf"))
-    {
-        return DWARF;
-    }
-    else if (typeName.equalsIgnoreCase("Wizard"))
-    {
-        return WIZARD;
-    }
-    else if (typeName.equalsIgnoreCase("Knight"))
-    {
-        return KNIGHT;
-    }
-    else if (typeName.equalsIgnoreCase("Witch"))
-    {
-        return WITCH;
-    }
-    else if (typeName.equalsIgnoreCase("Mermaid"))
-    {
-        return MERMAID;
-    }
-    else if (typeName.equalsIgnoreCase("Ogre"))
-    {
-        return OGRE;
-    }
-    else
-    {
-        return UNKNOWN;
-    }
+  return data;
 }
 
 void setup()
 {
-    // Initialize Serial Monitor
-    Serial.begin(115200);
-    Serial.println("Starting setup...");
+  Serial.begin(115200);
+  Serial.println("Starting setup...");
 
-    // Initialize TFT display
-    tft.init();
-    tft.setRotation(3); // Rotate the screen 180 degrees
-    tft.fillScreen(TFT_BLACK);
-    tft.setTextSize(2);
-    tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.setCursor(0, 0);
-    tft.println("Initializing...");
-    Serial.println("TFT initialized.");
+  // Initialize the TFT display
+  Serial.println("Initializing TFT...");
+  tft.init();
+  tft.setRotation(1);
+  tft.setTextSize(2);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.fillScreen(TFT_BLACK);
+  tft.setCursor(0, 0);
+  tft.println("TFT OK");
+  Serial.println("TFT initialized");
 
-    // Initialize SPI with specified pins
-    Serial.println("Initializing SPI...");
-    SPI.begin(25, 33, 26); // Initialize SPI with SCK=25, MISO=33, MOSI=26
-    Serial.println("SPI Initialized");
+  // Initialize RFID module
+  Serial.println("Initializing RFID...");
+  SPI.begin(25, 33, 26); // SPI with SCK=25, MISO=33, MOSI=26
+  mfrc522.PCD_Init();    // Initialize RFID reader
+  Serial.println("RFID initialized");
+  tft.println("RFID OK");
 
-    // Initialize RFID reader
-    mfrc522.PCD_Init();
-    Serial.println("RFID reader initialized.");
-    tft.println("RFID Initialized");
+  // Prepare the key (used both as key A and as key B)
+  for (byte i = 0; i < 6; i++)
+  {
+    key.keyByte[i] = 0xFF;
+  }
 
-    // Prepare the MIFARE Key (assuming default key A)
-    for (byte i = 0; i < 6; i++)
+  // Check for new RFID tag
+  while (!tagDetected)
+  {
+    if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
     {
-        key.keyByte[i] = 0xFF;
-    }
+      Serial.println("RFID tag detected");
+      tagDetected = true;
 
-    // Initialize SPIFFS
-    if (!SPIFFS.begin(true))
+      // Read and display RFID tag contents
+      String name = readFromRFID(1); // Block 1
+      Serial.print("Name: ");
+      Serial.println(name);
+
+      // Display name on TFT
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0);
+      tft.println("Name:");
+      tft.println(name);
+      delay(3000);
+    }
+    else
     {
-        Serial.println("An Error has occurred while mounting SPIFFS");
-        tft.println("SPIFFS Mount Failed");
-        return;
+      // No RFID tag detected
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0);
+      tft.println("No RFID tag detected");
+      delay(500);
     }
-    Serial.println("SPIFFS mounted successfully.");
-    tft.println("SPIFFS Mounted");
-    /*
-        // **Call Test Function**
-        if (testWriteAndRead())
-        {
-            Serial.println("Test Write and Read Passed.");
-            tft.println("Test Passed.");
-        }
-        else
-        {
-            Serial.println("Test Write and Read Failed.");
-            tft.println("Test Failed.");
-        }
-    */
-    // Connect to WiFi
-    WiFi.begin(ssid, pass);
-    int wifi_attempts = 0;
-    Serial.print("Connecting to WiFi");
-    tft.print("Connecting to WiFi");
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        delay(1000);
-        Serial.print(".");
-        tft.print(".");
-        wifi_attempts++;
-        if (wifi_attempts > 20) // 20 seconds timeout
-        {
-            Serial.println("\nFailed to connect to WiFi");
-            tft.println("\nNo connection");
-            return;
-        }
+  }
+
+  // Initialize SPIFFS
+  Serial.println("Initializing SPIFFS...");
+  if (!SPIFFS.begin(true))
+  {
+    Serial.println("An Error has occurred while mounting SPIFFS");
+    tft.println("SPIFFS Mount Failed");
+    return;
+  }
+  Serial.println("SPIFFS mounted successfully");
+  tft.println("SPIFFS OK");
+
+  // Connect to WiFi
+  Serial.println("Connecting to WiFi...");
+  tft.println("Connecting to WiFi...");
+  WiFi.begin(ssid, pass);
+  int wifi_attempts = 0;
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+    tft.print(".");
+    wifi_attempts++;
+    if (wifi_attempts > 20)
+    { // Timeout after 20 seconds
+      Serial.println("Failed to connect to WiFi");
+      tft.println("No connection");
+      return;
     }
-    Serial.println("\nConnected to WiFi");
-    tft.println("\nWiFi OK");
+  }
+  Serial.println("Connected to WiFi");
+  tft.println("WiFi OK");
 
-    // Display IP address
-    String ipAddress = WiFi.localIP().toString();
-    Serial.print("IP Address: ");
-    Serial.println(ipAddress);
-    tft.fillScreen(TFT_BLACK);
-    tft.setCursor(0, 0);
-    tft.println("IP Address:");
-    tft.println(ipAddress);
+  // Display IP address
+  String ipAddress = WiFi.localIP().toString();
+  Serial.print("IP Address: ");
+  Serial.println(ipAddress);
+  tft.fillScreen(TFT_BLACK);
+  tft.setCursor(0, 0);
+  tft.println("IP Address:");
+  tft.println(ipAddress);
 
-    // Setup server routes
-    // Serve static files from SPIFFS
-    server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
+  // Setup server routes
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+            {
+    Serial.println("Serving /index.html");
+    request->send(SPIFFS, "/index.html", "text/html"); });
 
-    // Handle form submission
-    server.on("/submit", HTTP_POST, handleFormSubmit);
+  server.on("/submit", HTTP_POST, [](AsyncWebServerRequest *request)
+            {
+    if (request->hasParam("name", true)) {
+      String name = request->getParam("name", true)->value();
+      inputData = "name:" + name;
+      dataReceived = true;
+      Serial.println("Data received: " + inputData);
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0);
+      tft.println("Data received:");
+      tft.println(inputData);
+      request->send(200, "text/plain", "Data received and will be written to the RFID card.");
+    } else {
+      Serial.println("No data received");
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0);
+      tft.println("No data received");
+      request->send(400, "text/plain", "No data received");
+    } });
 
-    server.begin();
-    Serial.println("HTTP server started");
-    server.on("/submitProfile", HTTP_POST, handleMakeProfileRequest);
+  server.begin();
+  Serial.println("HTTP server started");
 }
 
-/**
- * @brief Handles state transitions and RFID operations.
- */
 void loop()
 {
-    switch (currentState)
+  // Display "Web address:" and IP
+  tft.fillScreen(TFT_BLACK);
+  tft.setCursor(0, 0);
+  tft.println("Web address:");
+  tft.println(WiFi.localIP());
+
+  // Wait until data is received
+  unsigned long startTime = millis();
+  while (!dataReceived && millis() - startTime < 30000) // Timeout after 30 seconds
+  {
+    delay(100);
+  }
+
+  // Write data to RFID card
+  if (dataReceived)
+  {
+    // Reinitialize RFID module before each write operation
+    Serial.println("Reinitializing RFID module...");
+    mfrc522.PCD_Init();
+
+    // Write name to block 1
+    String name = inputData.substring(inputData.indexOf("name:") + 5);
+    Serial.print("Writing name to block 1: ");
+    Serial.println(name);
+    if (writeToRFID(name, 1))
     {
-    case IDLE:
-        // Continuously scan for RFID cards
-        if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
-        {
-            Serial.println("RFID card detected.");
-            tft.println("RFID card detected.");
-
-            // Read data from RFID
-            String readData = readFromRFID(SECTOR1_BLOCK1);
-            Serial.print("Data read from Block1: ");
-            Serial.println(readData);
-            tft.println("Data read from RFID.");
-
-            // Parse the read data
-            RFIDData readRFIDData;
-            parseRFIDData(readData, readRFIDData);
-
-            if (readRFIDData.name.length() == 0)
-            {
-                Serial.println("Invalid block data format.");
-                tft.println("Invalid data format.");
-            }
-            else
-            {
-                // Display parsed data
-                Serial.println("Parsed RFID Data:");
-                Serial.print("Name: ");
-                Serial.println(readRFIDData.name);
-                Serial.print("Age: ");
-                Serial.println(readRFIDData.age);
-                Serial.print("Type: ");
-                Serial.println(getCharacterTypeName(readRFIDData.characterType));
-                Serial.print("Gender: ");
-                Serial.println(readRFIDData.gender);
-
-                tft.fillScreen(TFT_BLACK);
-                tft.setCursor(0, 0);
-                tft.println("RFID Data:");
-                tft.println("Name: " + readRFIDData.name);
-                tft.println("Age: " + String(readRFIDData.age));
-                tft.println("Type: " + getCharacterTypeName(readRFIDData.characterType));
-                tft.println("Gender: " + String(readRFIDData.gender));
-            }
-
-            // Halt and stop encryption
-            mfrc522.PICC_HaltA();
-            mfrc522.PCD_StopCrypto1();
-        }
-
-        // Check if data has been received from the web server
-        if (dataReceived)
-        {
-            Serial.println("Data received. Preparing to write to RFID.");
-            tft.println("Data received. Ready to write.");
-
-            // Reinitialize RFID module
-            mfrc522.PCD_Init();
-            Serial.println("RFID module reinitialized.");
-
-            // Transition to writing state
-            currentState = WRITING_DATA;
-        }
-        break;
-
-    case WRITING_DATA:
+      Serial.println("Name written to RFID card");
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0);
+      tft.println("Name written to");
+      tft.println("RFID card");
+    }
+    else
     {
-        Serial.println("Writing data to RFID card.");
-        tft.println("Writing data to RFID...");
-
-        // Parse inputData into RFIDData struct
-        RFIDData rfidData;
-        parseInputData(inputData, rfidData);
-
-        // Prepare data string: "Name,Age,TypeIndex,Gender"
-        String dataString = rfidData.name + "," + String(rfidData.age) + "," + String(static_cast<int>(rfidData.characterType)) + "," + String(rfidData.gender);
-
-        // Ensure the dataString is exactly 16 characters
-        while (dataString.length() < 16)
-        {
-            dataString += ' ';
-        }
-        if (dataString.length() > 16)
-        {
-            dataString = dataString.substring(0, 16);
-        }
-
-        Serial.print("Formatted Data String: '");
-        Serial.print(dataString);
-        Serial.println("'");
-        tft.println("Formatted Data:");
-
-        // Write to RFID block
-        if (writeToRFID(dataString, SECTOR1_BLOCK1))
-        {
-            Serial.println("Data successfully written to RFID.");
-            tft.println("Data written to Block 5.");
-            currentState = IDLE; // Return to IDLE after writing
-        }
-        else
-        {
-            Serial.println("Failed to write data to RFID.");
-            tft.println("Write failed.");
-            currentState = IDLE;
-        }
-
-        break;
+      Serial.println("Failed to write name to RFID card");
+      tft.fillScreen(TFT_BLACK);
+      tft.setCursor(0, 0);
+      tft.println("Write failed");
     }
+  }
+  else if (!dataReceived)
+  {
+    Serial.println("No data received within timeout period");
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(0, 0);
+    tft.println("No data received");
+  }
 
-    default:
-        currentState = IDLE;
-        break;
-    }
+  // Reset flags
+  dataReceived = false;
+  tagDetected = false;
 
-    // Optional: Add a small delay to prevent overwhelming the CPU
-    delay(1000);
+  mfrc522.PICC_HaltA();      // Halt PICC
+  mfrc522.PCD_StopCrypto1(); // Stop encryption on PCD
+
+  delay(500);
 }
