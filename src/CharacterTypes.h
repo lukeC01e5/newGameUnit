@@ -6,18 +6,21 @@
 // Definition of the CharacterType enum
 enum CharacterType
 {
-    ELF = 1,
+    UNKNOWN = -1,
+    ELF,
     DWARF,
     WIZARD,
     KNIGHT,
     WITCH,
     MERMAID,
     OGRE,
-    UNKNOWN,
-    CHARACTER_TYPE_COUNT // Automatically set to the number of character types
+    CHARACTER_TYPE_COUNT  // Sentinel value
 };
 
 // Function declaration
-String getCharacterTypeName(CharacterType type);
+CharacterType getCharacterTypeByName(const String &typeName);
+
+// Optional: Function to convert enum to string
+String getCharacterTypeName(CharacterType typeEnum);
 
 #endif // CHARACTERTYPES_H

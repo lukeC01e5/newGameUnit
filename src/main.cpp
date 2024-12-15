@@ -194,6 +194,121 @@ void handleFormSubmit(AsyncWebServerRequest *request)
     }
 }
 
+// Inside your request handler
+void handleMakeProfileRequest(AsyncWebServerRequest *request)
+{
+    Serial.println("Received make profile request");
+
+    // Check if the required parameters are present
+    if (!request->hasParam("name", true) || !request->hasParam("age", true) ||
+        !request->hasParam("type", true) || !request->hasParam("gender", true))
+    {
+        Serial.println("Missing one or more parameters");
+        request->send(400, "text/plain", "Missing required parameters");
+        return;
+    }
+
+    // Retrieve parameters from POST body
+    String name = request->getParam("name", true)->value();
+    String ageStr = request->getParam("age", true)->value();
+    String typeStr = request->getParam("type", true)->value();
+    String genderStr = request->getParam("gender", true)->value();
+
+    // Validate and process parameters
+    if (name.length() == 0)
+    {
+        Serial.println("Name cannot be empty");
+        request->send(400, "text/plain", "Name cannot be empty");
+        return;
+    }
+
+    int age = ageStr.toInt();
+    if (age <= 0)
+    {
+        Serial.println("Invalid age");
+        request->send(400, "text/plain", "Invalid age");
+        return;
+    }
+
+    char gender = genderStr.charAt(0);
+    if (gender != 'M' && gender != 'F')
+    {
+        Serial.println("Invalid gender");
+        request->send(400, "text/plain", "Invalid gender");
+        return;
+    }
+
+    CharacterType typeEnum = getCharacterTypeByName(typeStr);
+    if (typeEnum == UNKNOWN)
+    {
+        Serial.println("Invalid character type received");
+        request->send(400, "text/plain", "Invalid character type received");
+        return;
+    }
+
+    int typeIndex = static_cast<int>(typeEnum);
+
+    // Format the data string as "Name,Age,TypeIndex,Gender"
+    String formattedData = name + "," + String(age) + "," + String(typeIndex) + "," + String(gender);
+
+    // Ensure the formattedData is exactly 16 characters by padding or trimming
+    formattedData = formattedData.substring(0, 16);
+    while (formattedData.length() < 16)
+    {
+        formattedData += ' ';
+    }
+
+    inputData = formattedData;
+    Serial.print("Formatted Data String: '");
+    Serial.print(formattedData);
+    Serial.println("'");
+
+    // Send a success response
+    request->send(200, "text/plain", "Profile created successfully");
+}
+
+/**
+ * @brief Converts a character type name to the corresponding CharacterType enum value.
+ *
+ * @param typeName The name of the character type.
+ * @return The corresponding CharacterType enum value.
+ */
+CharacterType getCharacterTypeByName(const String &typeName)
+{
+    if (typeName.equalsIgnoreCase("Elf"))
+    {
+        return ELF;
+    }
+    else if (typeName.equalsIgnoreCase("Dwarf"))
+    {
+        return DWARF;
+    }
+    else if (typeName.equalsIgnoreCase("Wizard"))
+    {
+        return WIZARD;
+    }
+    else if (typeName.equalsIgnoreCase("Knight"))
+    {
+        return KNIGHT;
+    }
+    else if (typeName.equalsIgnoreCase("Witch"))
+    {
+        return WITCH;
+    }
+    else if (typeName.equalsIgnoreCase("Mermaid"))
+    {
+        return MERMAID;
+    }
+    else if (typeName.equalsIgnoreCase("Ogre"))
+    {
+        return OGRE;
+    }
+    else
+    {
+        return UNKNOWN;
+    }
+}
+
 void setup()
 {
     // Initialize Serial Monitor
@@ -287,6 +402,7 @@ void setup()
 
     server.begin();
     Serial.println("HTTP server started");
+    server.on("/submitProfile", HTTP_POST, handleMakeProfileRequest);
 }
 
 /**
@@ -410,5 +526,5 @@ void loop()
     }
 
     // Optional: Add a small delay to prevent overwhelming the CPU
-    delay(10);
+    delay(1000);
 }
