@@ -2,17 +2,84 @@
 <html>
 <head>
   <title>Player Setup</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    label { display: inline-block; width: 150px; margin-bottom: 10px; }
+    input, select { width: 200px; }
+    .checkbox-group { display: flex; gap: 10px; }
+  </style>
 </head>
 <body>
+  <h2>Player Setup</h2>
   <form action="/submit" method="POST">
-    <label for="name">Name:</label>
-    <input type="text" id="name" name="name"><br><br>
-    <label for="characterType">Character Type:</label>
-    <select id="characterType" name="characterType">
-      <option value="Wizard">Wizard</option>
-      <option value="Knight">Knight</option>
+    <!-- Age Input -->
+    <label for="age">Age (00-99):</label>
+    <input type="number" id="age" name="age" min="0" max="99" required><br><br>
+    
+    <!-- Coins Input -->
+    <label for="coins">Coins (00-99):</label>
+    <input type="number" id="coins" name="coins" min="0" max="99" required><br><br>
+    
+    <!-- Creature Type Dropdown -->
+    <label for="creatureType">Creature Type:</label>
+    <select id="creatureType" name="creatureType" required>
+      <option value="0">No Creature</option>
+      <option value="1">Flamingo</option>
+      <option value="2">Flame-Kingo</option>
+      <option value="3">Kitten</option>
+      <option value="4">Flame-on</option>
+      <option value="5">Pup</option>
+      <option value="6">Dog</option>
+      <option value="7">Wolf</option>
+      <option value="8">Birdy</option>
+      <option value="9">Haast-eagle</option>
+      <option value="10">Squidy</option>
+      <option value="11">Giant-Squid</option>
+      <option value="12">Kraken</option>
+      <option value="13">BabyShark</option>
+      <option value="14">Shark</option>
+      <option value="15">Megalodon</option>
+      <option value="16">Tadpole</option>
+      <option value="17">Poison-dart-frog</option>
+      <option value="18">Unicorn</option>
+      <option value="19">Master-unicorn</option>
+      <option value="20">Sprouty</option>
+      <option value="21">Tree-Folk</option>
+      <option value="22">Bush-Monster</option>
+      <option value="23">Baby-Dragon</option>
+      <option value="24">Dragon</option>
+      <option value="25">Dino-Egg</option>
+      <option value="26">T-Rex</option>
+      <option value="27">Baby-Ray</option>
+      <option value="28">Mega-Manta</option>
+      <option value="29">Orca</option>
+      <option value="30">Big-Bitey</option>
+      <option value="31">Flame-Lily</option>
+      <option value="32">Monster-Lily</option>
+      <option value="33">Bear-Cub</option>
+      <option value="34">Moss-Bear</option>
     </select><br><br>
+    
+    <!-- Boolean Inputs -->
+    <label>Options A-D:</label>
+    <div class="checkbox-group">
+      <label><input type="checkbox" name="A"> A</label>
+      <label><input type="checkbox" name="B"> B</label>
+      <label><input type="checkbox" name="C"> C</label>
+      <label><input type="checkbox" name="D"> D</label>
+    </div><br><br>
+    
+    <!-- Creature Name Input -->
+    <label for="name">Creature Name (Max 6 chars):</label>
+    <input type="text" id="name" name="name" maxlength="6" required><br><br>
+    
     <input type="submit" value="Submit">
   </form>
+  
+  <!-- Embed JavaScript if needed -->
+  <script>
+    // Your JavaScript code here (if any)
+  </script>
+  
 </body>
 </html>

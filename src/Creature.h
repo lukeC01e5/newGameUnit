@@ -1,6 +1,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <Arduino.h>
 
 class Player
 {
@@ -29,4 +30,12 @@ public:
     }
     return oss.str();
   }
+};
+
+struct Creature {
+    String creatureName;   // Data after '%'
+    String trainerName;    // Blank for now
+    int trainerAge;        // First two digits from RFID data
+    int coins;             // Next two digits
+    int creatureType;      // Next two digits, corresponds to creatures array
 };
