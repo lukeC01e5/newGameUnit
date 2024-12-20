@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Landing Page</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    button { width: 150px; height: 40px; margin: 10px; }
+    button:disabled { background-color: #ccc; color: #666; }
+  </style>
+</head>
+<body>
+  <h2>Welcome</h2>
+  <button id="editProfileBtn">Edit Profile</button>
+  <button id="viewProfileBtn" disabled>View Profile</button>
+
+  <script>
+    // Redirect to edit profile
+    document.getElementById('editProfileBtn').addEventListener('click', function() {
+      window.location.href = '/editProfile';
+    });
+
+    // Placeholder for onlineProfile function
+    function onlineProfile() {
+      alert('Online Profile function called.');
+    }
+
+    // Check creature status
+    fetch('/creatureStatus')
+      .then(response => response.json())
+      .then(data => {
+        if (data.hasCreature) {
+          // Enable the View Profile button if creatureName is populated
+          const viewBtn = document.getElementById('viewProfileBtn');
+          viewBtn.disabled = false;
+          viewBtn.addEventListener('click', onlineProfile);
+        }
+      })
+      .catch(error => console.error('Error fetching creature status:', error));
+  </script>
+</body>
+</html>

@@ -35,7 +35,7 @@ void parseRFIDData(const String &data, RFIDData &rfidData)
     // Extract Boolean Values
     rfidData.bools = mainData.substring(6, 8).toInt();
 
-    // Extract Name (ensure it's trimmed to 6 characters)
+    // Extract Custom Name (ensure it's trimmed to 6 characters)
     if (nameData.length() > 6)
     {
         rfidData.name = nameData.substring(0, 6);
@@ -55,6 +55,6 @@ void parseRFIDData(const String &data, RFIDData &rfidData)
     Serial.println(rfidData.creatureType);
     Serial.print("Bools: ");
     Serial.println(rfidData.bools, BIN); // Print as binary
-    Serial.print("Name: ");
+    Serial.print("Custom Name: ");
     Serial.println(rfidData.name);
 }

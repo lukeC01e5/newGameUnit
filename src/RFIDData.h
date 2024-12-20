@@ -11,6 +11,9 @@ struct RFIDData {
   int creatureType;        // 00-34 (0 reserved for 'no creature')
   uint8_t bools;           // 0-15 representing 4 boolean values
 };
+// Add these lines to RFIDData.h if you need to access the variables elsewhere
+extern RFIDData pendingData;
+extern bool dataPending;
 
 void parseRFIDData(const String& data, RFIDData& rfidData);
 

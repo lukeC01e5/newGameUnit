@@ -1,8 +1,6 @@
 
 #include <TFT_eSPI.h> // Include the TFT_eSPI library
 
-#include "Trex.h" // Include the T-Rex image
-
 TFT_eSPI tft; // Create an instance of the TFT class
 
 void displayTrex()
