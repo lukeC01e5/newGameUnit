@@ -103,6 +103,8 @@ String padString(String str, int targetLength, char padChar = ' ')
 
 String readFromRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte blockAddr)
 {
+    Serial.println("[readFromRFID] Attempting to read block " + String(blockAddr));
+
     MFRC522::StatusCode status;
 
     // Authenticate with the card
@@ -155,37 +157,51 @@ String readFromRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte blockAddr)
         result += (char)buffer[i];
     }
 
+    Serial.print("[readFromRFID] Raw block content: ");
+    Serial.println(result);
+
     return result;
 }
 
 bool writeRFIDData(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const RFIDData &data)
 {
-    // Synthesize a simple 14-character payload: "AA CC TT BB %NAME"
-    // Age(2 chars) + Coins(2) + CreatureType(2) + Bools(2) + '%' + Name(6) = 14 total
-    // (Extra characters will be discarded, if any.)
-    char buffer[15] = {0}; // Enough for 14 chars + null terminator
-    snprintf(
-        buffer,
-        sizeof(buffer),
-        "%02d%02d%02d%02d%%%s",
-        data.age,
-        data.coins,
-        data.creatureType,
-        data.bools,
-        data.name.substring(0, 6).c_str()
-    );
+    // Debug prints before constructing payload:
+    Serial.println("[writeRFIDData] Preparing to write data:");
+    Serial.print(" Age: ");
+    Serial.println(data.age);
+    Serial.print(" Coins: ");
+    Serial.println(data.coins);
+    Serial.print(" CreatureType: ");
+    Serial.println(data.creatureType);
+    Serial.print(" Bools: ");
+    Serial.println(data.bools, BIN);
+    Serial.print(" Name: ");
+    Serial.println(data.name);
+
+    // Create payload: "AA CC TT BB %NAME"
+    char buffer[15];
+    memset(buffer, 0, sizeof(buffer));
+    snprintf(buffer, sizeof(buffer), "%02d%02d%02d%02d%%%s",
+             data.age,
+             data.coins,
+             data.creatureType,
+             data.bools,
+             data.name.substring(0, 6).c_str());
     String payload = String(buffer);
 
     // Debug
-    Serial.print("writeRFIDData - Payload: ");
+    Serial.print("[writeRFIDData] Final payload: ");
     Serial.println(payload);
 
-    // Attempt actual write to block 1
+    // Use helper
     bool result = writeToRFID(mfrc522, key, payload, 1);
-    if (result) {
-        Serial.println("RFID write successful!");
-    } else {
-        Serial.println("RFID write failed!");
+    if (result)
+    {
+        Serial.println("[writeRFIDData] Write SUCCESS!");
+    }
+    else
+    {
+        Serial.println("[writeRFIDData] Write FAILED!");
     }
     return result;
 }
@@ -196,7 +212,8 @@ bool writeToRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const String &data,
     byte trailerBlock = (blockAddr / 4) * 4 + 3;
 
     // Initialize Key A to defaults
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 6; i++)
+    {
         key.keyByte[i] = 0xFF;
     }
 
@@ -205,7 +222,8 @@ bool writeToRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const String &data,
                                       trailerBlock,
                                       &key,
                                       &mfrc522.uid);
-    if (status != MFRC522::STATUS_OK) {
+    if (status != MFRC522::STATUS_OK)
+    {
         Serial.print("Authentication failed: ");
         Serial.println(mfrc522.GetStatusCodeName(status));
         mfrc522.PCD_StopCrypto1();
@@ -214,14 +232,16 @@ bool writeToRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const String &data,
 
     // Prepare 16-byte data buffer
     byte dataBlock[16];
-    memset(dataBlock, 0, 16);         // Zero out
-    for (int i = 0; i < 16 && i < (int)data.length(); i++) {
+    memset(dataBlock, 0, 16); // Zero out
+    for (int i = 0; i < 16 && i < (int)data.length(); i++)
+    {
         dataBlock[i] = data.charAt(i);
     }
 
     // Write block
     status = mfrc522.MIFARE_Write(blockAddr, dataBlock, 16);
-    if (status != MFRC522::STATUS_OK) {
+    if (status != MFRC522::STATUS_OK)
+    {
         Serial.print("Write failed: ");
         Serial.println(mfrc522.GetStatusCodeName(status));
         mfrc522.PCD_StopCrypto1();

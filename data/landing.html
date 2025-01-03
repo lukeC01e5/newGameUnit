@@ -6,36 +6,73 @@
     body { font-family: Arial, sans-serif; margin: 20px; }
     button { width: 150px; height: 40px; margin: 10px; }
     button:disabled { background-color: #ccc; color: #666; }
+    #statusMessage { margin-top: 20px; font-size: 14px; color: #333; }
   </style>
 </head>
 <body>
   <h2>Welcome</h2>
-  <button id="editProfileBtn">Edit Profile</button>
+  <button id="editProfileBtn" disabled>Edit Profile</button>
   <button id="viewProfileBtn" disabled>View Profile</button>
+  
+  <div id="statusMessage">No card present.</div>
 
   <script>
+    // Function to update button states based on card status
+    function updateButtons(cardPresent, hasCreature) {
+      const editBtn = document.getElementById('editProfileBtn');
+      const viewBtn = document.getElementById('viewProfileBtn');
+      const statusMsg = document.getElementById('statusMessage');
+
+      if (cardPresent) {
+        editBtn.disabled = false;
+        statusMsg.textContent = 'Card detected.';
+        if (hasCreature) {
+          viewBtn.disabled = false;
+          statusMsg.textContent += ' Profile loaded.';
+        } else {
+          viewBtn.disabled = true;
+          statusMsg.textContent += ' No existing profile.';
+        }
+      } else {
+        editBtn.disabled = true;
+        viewBtn.disabled = true;
+        statusMsg.textContent = 'No card present.';
+      }
+    }
+
+    // Initial button state update
+    function checkCardStatus() {
+      fetch('/creatureStatus')
+        .then(response => response.json())
+        .then(data => {
+          updateButtons(data.cardPresent, data.hasCreature);
+        })
+        .catch(error => {
+          console.error('Error fetching creature status:', error);
+          updateButtons(false, false);
+        });
+    }
+
+    // Poll the card status every 2 seconds
+    checkCardStatus(); // Initial check
+    setInterval(checkCardStatus, 2000);
+
     // Redirect to edit profile
     document.getElementById('editProfileBtn').addEventListener('click', function() {
       window.location.href = '/editProfile';
     });
 
+    // Function to handle viewing profile
+    document.getElementById('viewProfileBtn').addEventListener('click', function() {
+      // Implement view profile functionality here
+      onlineProfile();
+    });
+
     // Placeholder for onlineProfile function
     function onlineProfile() {
       alert('Online Profile function called.');
+      // Add your online profile logic here
     }
-
-    // Check creature status
-    fetch('/creatureStatus')
-      .then(response => response.json())
-      .then(data => {
-        if (data.hasCreature) {
-          // Enable the View Profile button if creatureName is populated
-          const viewBtn = document.getElementById('viewProfileBtn');
-          viewBtn.disabled = false;
-          viewBtn.addEventListener('click', onlineProfile);
-        }
-      })
-      .catch(error => console.error('Error fetching creature status:', error));
   </script>
 </body>
 </html>
