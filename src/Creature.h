@@ -13,4 +13,7 @@ struct Creature
   int creatureType;    // Next two digits, corresponds to creatures array
 };
 
+// Add this function prototype
+Creature decode(const String &rawData);
+
 #endif // CREATURE_H

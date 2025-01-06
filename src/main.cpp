@@ -22,8 +22,8 @@ bool tagDetected = false;
 bool serverRunning = false;
 
 RFIDData rfidData;
-//RFIDData pendingData; // Holds the *newly* submitted form data
-//bool dataPending = false;
+// RFIDData pendingData; // Holds the *newly* submitted form data
+// bool dataPending = false;
 Creature creature;
 
 // Creature list
@@ -58,6 +58,7 @@ void copyUid(MFRC522::Uid &dest, MFRC522::Uid &src);
 void clearUid(MFRC522::Uid &uid);
 bool writeToRFID(const String &data, byte blockAddr);
 void createOrUpdateUserOnServer();
+void exampleReadAndDecode(const String &rawRFID);
 
 // Example handleFormSubmit with debug prints:
 void handleFormSubmit(AsyncWebServerRequest *request)
@@ -378,6 +379,23 @@ void loop()
     }
 
     delay(100);
+}
+
+// ...existing includes & setup...
+
+void exampleReadAndDecode(const String &rawRFID)
+{
+    // Convert raw string into a Creature object
+    Creature myCreature = decode(rawRFID);
+
+    // Optionally do something with myCreature here
+    // Already printed fields in decode, but you can also do:
+    Serial.println("[exampleReadAndDecode] Additional info about myCreature:");
+    Serial.print(" trainerAge: ");
+    Serial.println(myCreature.trainerAge);
+    Serial.print(" coins: ");
+    Serial.println(myCreature.coins);
+    // ...
 }
 
 // Example function to write raw data to block

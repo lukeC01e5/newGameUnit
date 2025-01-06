@@ -5,4 +5,3 @@ MFRC522::MIFARE_Key key;
 RFIDData pendingData;
 bool dataPending = false;
 TFT_eSPI tft; // Define the TFT instance
-
