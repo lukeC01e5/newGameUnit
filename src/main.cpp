@@ -60,6 +60,10 @@ bool writeToRFID(const String &data, byte blockAddr);
 void createOrUpdateUserOnServer();
 void exampleReadAndDecode(const String &rawRFID);
 
+void startLoop();
+
+// RFIDParsed parseRawRFID(const String &raw);
+
 // Example handleFormSubmit with debug prints:
 void handleFormSubmit(AsyncWebServerRequest *request)
 {
@@ -111,28 +115,6 @@ void handleFormSubmit(AsyncWebServerRequest *request)
     }
 }
 
-// List SPIFFS files
-void listSPIFFSFiles()
-{
-    Serial.println("Listing SPIFFS files:");
-    fs::File root = SPIFFS.open("/");
-    if (!root)
-    {
-        Serial.println("Failed to open root directory");
-        return;
-    }
-
-    fs::File file = root.openNextFile();
-    while (file)
-    {
-        Serial.print("FILE: ");
-        Serial.print(file.name());
-        Serial.print("\tSIZE: ");
-        Serial.println(file.size());
-        file = root.openNextFile();
-    }
-}
-
 // Start the web server
 void startWebServer()
 {
@@ -172,47 +154,6 @@ void startWebServer()
         tft.println("Web Server Running");
         tft.print("IP: ");
         tft.println(WiFi.localIP());
-    }
-}
-
-// Stop the web server
-void stopWebServer()
-{
-    if (serverRunning)
-    {
-        server.end();
-        serverRunning = false;
-        Serial.println("Web server stopped.");
-        tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0);
-        tft.println("Web Server Stopped");
-    }
-}
-
-// Compare two UIDs
-bool uidsMatch(MFRC522::Uid uid1, MFRC522::Uid uid2)
-{
-    if (uid1.size != uid2.size)
-    {
-        return false;
-    }
-    for (byte i = 0; i < uid1.size; i++)
-    {
-        if (uid1.uidByte[i] != uid2.uidByte[i])
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-// Copy a UID
-void copyUid(MFRC522::Uid &dest, MFRC522::Uid &src)
-{
-    dest.size = src.size;
-    for (byte i = 0; i < src.size; i++)
-    {
-        dest.uidByte[i] = src.uidByte[i];
     }
 }
 
@@ -259,9 +200,6 @@ void setup()
         tft.println("SPIFFS Mount Failed");
         return;
     }
-    Serial.println("SPIFFS mounted successfully");
-    tft.println("SPIFFS Initialized");
-    listSPIFFSFiles();
 
     // Connect to Wi-Fi
     WiFi.begin(ssid, pass);
@@ -282,6 +220,58 @@ void setup()
 
     Serial.println("Setup complete. Waiting for RFID tag...");
     tft.println("Waiting for RFID...");
+
+    Serial.println("[setup] Place an RFID card now to read...");
+
+    // Wait until a card is presented (optional, but ensures a single read at startup)
+    while (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial())
+    {
+        delay(200);
+    }
+    Serial.println("here?????");
+    // Once a card is detected, read raw data from a specific block
+
+    // ...existing code...
+
+    // In setup(), after detecting a new card:
+    int myIntPart = 0;
+    String myStrPart;
+
+    // Use the new readFromRFID signature
+    String rawData = readFromRFID(mfrc522, key, 1, myIntPart, myStrPart);
+
+    Serial.println("and here??");
+    Serial.println(rawData);
+
+    // Show the split parts
+    Serial.print("Integer part: ");
+    Serial.println(myIntPart);
+    Serial.print("String part: ");
+    Serial.println(myStrPart);
+
+    // Remove or comment out the old call to decode(rawData):
+    // Creature myCreature = decode(rawData);
+    // Serial.print("[setup] Hello ");
+    // Serial.println(myCreature.customName);
+
+    // ...existing code...
+
+    //  Decode it into a Creature
+    Creature myCreature = decode(rawData);
+
+    // Print to Serial
+    Serial.print("[setup] Hello ");
+    Serial.println(myCreature.customName);
+
+    // Show on TFT display
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(0, 0);
+    tft.println("Hello " + myCreature.customName);
+    //}
+
+    // Halt card so it won’t continue reading
+    mfrc522.PICC_HaltA();
+    mfrc522.PCD_StopCrypto1();
 }
 
 bool cardProcessing = false;
@@ -289,9 +279,13 @@ bool cardProcessing = false;
 void loop()
 {
     // If we’re ready to write RFID data
-    if (dataPending)
-    {
-        // Wait until a new card is detected
+    // if (dataPending)
+    //{
+    // Wait until a new card is detected
+
+    startLoop();
+
+    /*
         if (!cardProcessing && mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
         {
             cardProcessing = true; // We are now processing the card
@@ -324,61 +318,123 @@ void loop()
         }
         delay(100);
         return;
-    }
 
-    // Normal read mode
-    if (!cardProcessing && mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
-    {
-        cardProcessing = true;
-        cardPresent = true;
-        Serial.println("New RFID card detected!");
-
-        String rawData = readFromRFID(mfrc522, key, 1);
-        Serial.print("Raw Data: ");
-        Serial.println(rawData);
-
-        if (rawData.length() == 14 && rawData[8] == '%') // Validate payload length and separator
+        // Normal read mode
+        if (!cardProcessing && mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
         {
-            parseRFIDData(rawData, rfidData);
-            hasCreature = true;
-            // Optionally, handle creature-related logic here
+            cardProcessing = true;
+            cardPresent = true;
+            Serial.println("New RFID card detected!");
+
+            String rawData = readFromRFID(mfrc522, key, 1);
+            Serial.print("Raw Data: ");
+            Serial.println(rawData);
+
+            // Instead of checking rawData.length() == 14, just look for '%'
+            if (rawData.indexOf('%') != -1)
+            {
+                // Example: parseRawRFID
+                RFIDParsed parsed = parseRawRFID(rawData);
+                // Print the parsed fields
+                Serial.println("[Parsed RFID]");
+                Serial.print("  Age: ");
+                Serial.println(parsed.age);
+                Serial.print("  Coins: ");
+                Serial.println(parsed.coins);
+                Serial.print("  CreatureType: ");
+                Serial.println(parsed.creatureType);
+                Serial.print("  BoolVal: ");
+                Serial.println(parsed.boolVal);
+                Serial.print("  Name: ");
+                Serial.println(parsed.name);
+
+                // Indicate we have a creature now
+                hasCreature = true;
+            }
+            else
+            {
+                Serial.println("Invalid or incomplete data; skipping parse.");
+            }
+
+            // Halt so we don't re-read the same card
+            mfrc522.PICC_HaltA();
+            mfrc522.PCD_StopCrypto1();
         }
-        else
+        else if (!mfrc522.PICC_IsNewCardPresent() && cardProcessing)
         {
-            Serial.println("No existing profile on card.");
+            // Card removed
+            cardProcessing = false;
+            cardPresent = false;
             hasCreature = false;
+            Serial.println("RFID card removed.");
+            clearUid(lastCardUid);
         }
 
-        // Halt to avoid repeated re-reads
-        mfrc522.PICC_HaltA();
-        mfrc522.PCD_StopCrypto1();
-    }
-    else if (!mfrc522.PICC_IsNewCardPresent() && cardProcessing)
-    {
-        // Card removed
-        cardProcessing = false;
-        cardPresent = false;
-        hasCreature = false;
-        Serial.println("RFID card removed.");
-        clearUid(lastCardUid);
-    }
+        // Only print if state changes
+        if (cardPresent != lastCardPresent || hasCreature != lastHasCreature)
+        {
+            Serial.println("---------- RFID State Changed ----------");
+            Serial.print("Card Present: ");
+            Serial.println(cardPresent ? "YES" : "NO");
+            Serial.print("Has Creature: ");
+            Serial.println(hasCreature ? "YES" : "NO");
+            Serial.println("----------------------------------------");
 
-    // Only print if state changes
-    if (cardPresent != lastCardPresent || hasCreature != lastHasCreature)
-    {
-        Serial.println("---------- RFID State Changed ----------");
-        Serial.print("Card Present: ");
-        Serial.println(cardPresent ? "YES" : "NO");
-        Serial.print("Has Creature: ");
-        Serial.println(hasCreature ? "YES" : "NO");
-        Serial.println("----------------------------------------");
+            // Update stored states
+            lastCardPresent = cardPresent;
+            lastHasCreature = hasCreature;
+        }
 
-        // Update stored states
-        lastCardPresent = cardPresent;
-        lastHasCreature = hasCreature;
-    }
+        // In loop(), after you do:
+        String raw = readFromRFID(mfrc522, key, 1);
+        RFIDParsed parsed;
 
-    delay(100);
+        if (raw.length() > 0)
+        {
+            Serial.print("[loop] Raw data: ");
+            Serial.println(raw);
+
+            // Parse it immediately (no web form needed)
+            parsed = parseRawRFID(raw);
+
+            // Print results
+            Serial.println("[loop] Parsed fields:");
+            Serial.print("  Age: ");
+            Serial.println(parsed.age);
+            Serial.print("  Coins: ");
+            Serial.println(parsed.coins);
+            Serial.print("  Creature Type: ");
+            Serial.println(parsed.creatureType);
+            Serial.print("  Bools: ");
+            Serial.println(parsed.boolVal);
+            Serial.print("  Name: ");
+            Serial.println(parsed.name);
+
+            // You can also display the name on the TFT
+            tft.fillScreen(TFT_BLACK);
+            tft.setCursor(0, 0);
+            tft.printf("Hello %s!", parsed.name.c_str());
+        }
+
+        // String raw = readFromRFID(mfrc522, key, 1);
+        if (raw.length() > 0)
+        {
+            Serial.println("Raw data: " + raw);
+
+            // Declare 'parsed' before assigning
+            // RFIDParsed parsed = parseRawRFID(raw);
+
+            // Print or use 'parsed'
+            Serial.print("Age: ");
+            Serial.println(parsed.age);
+            // etc.
+        }
+
+        delay(100);
+
+
+
+        */
 }
 
 // ...existing includes & setup...
@@ -462,64 +518,18 @@ bool writeToRFID(const String &data, byte blockAddr)
     return true;
 }
 
-void createOrUpdateUserOnServer()
+void startLoop()
 {
-    // Construct JSON from pendingData
-    String body = "{"
-                  "\"trainerName\":\"" +
-                  pendingData.name + "\","
-                                     "\"trainerAge\":" +
-                  String(pendingData.age) + ","
-                                            "\"coins\":" +
-                  String(pendingData.coins) + ","
-                                              "\"creatureType\":" +
-                  String(pendingData.creatureType) +
-                  "}";
-
-    // Connect to your Flask app on port 80 (or change if needed)
-    if (client.connect("gameapi-2e9bb6e38339.herokuapp.com", 80))
+    if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
     {
-        // Send POST to /api/v1/create_user (adjust path if updating an existing user)
-        client.println("POST /api/v1/create_user HTTP/1.1");
-        client.println("Host: gameapi-2e9bb6e38339.herokuapp.com");
-        client.println("Content-Type: application/json");
-        client.println("Connection: close");
-        client.println("User-Agent: Arduino/1.0");
-        client.println("Content-Length: " + String(body.length()));
-        client.println();
-        client.print(body);
+        // Remove or comment out the old 3-parameter call and replace with the new version:
+        int myIntPart = 0;
+        String myStrPart;
+        String raw = readFromRFID(mfrc522, key, 1, myIntPart, myStrPart);
 
-        unsigned long timeout = millis();
-        while (client.connected() || client.available())
+        if (raw.length() > 0)
         {
-            if (millis() - timeout > 5000)
-                break;
-            if (client.available())
-            {
-                String line = client.readStringUntil('\n');
-                if (line == "\r")
-                {
-                    // Instead of clearing the TFT every time, just set a small text area or skip:
-                    // tft.fillScreen(TFT_BLACK); // Commented out
-
-                    tft.setCursor(0, 0);
-                    while (client.available())
-                    {
-                        String dataLine = client.readStringUntil('\n');
-                        tft.setTextSize(2);
-                        tft.println(dataLine);
-                        delay(1000);
-                    }
-                    break;
-                }
-            }
+            // Your existing code here...
         }
-        client.stop();
-    }
-    else
-    {
-        tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0);
-        tft.println("Connection failed");
     }
 }

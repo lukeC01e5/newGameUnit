@@ -53,12 +53,60 @@ void parseRFIDData(const String &data, RFIDData &rfidData)
     Serial.println(rfidData.age);
     Serial.print("Coins: ");
     Serial.println(rfidData.coins);
-    Serial.print("Creature Type: ");
-    Serial.println(rfidData.creatureType);
+    // Serial.print("Creature Type: ");
+    // Serial.println(rfidData.creatureType);
     Serial.print("Bools: ");
     Serial.println(rfidData.bools, BIN); // Print as binary
+
+    // Strip any '\0' in rfidData.name:
+    int nullPos;
+    while ((nullPos = rfidData.name.indexOf('\0')) != -1)
+    {
+        rfidData.name.remove(nullPos, 1);
+    }
+
+    // Now prints the trimmed name only:
     Serial.print("Custom Name: ");
     Serial.println(rfidData.name);
+}
+
+RFIDParsed parseRawRFID(const String &raw)
+{
+
+    Serial.println("parsed called");
+
+    RFIDParsed result{0, 0, 0, 0, ""};
+
+    int sepIndex = raw.indexOf('%');
+    if (sepIndex == -1)
+    {
+        Serial.println("Invalid data format: Missing '%'");
+        return result;
+    }
+    String mainData = raw.substring(0, sepIndex);
+    String nameData = raw.substring(sepIndex + 1);
+
+    if (mainData.length() < 8)
+    {
+        Serial.println("Invalid data format: Expected 8 chars in main data");
+        return result;
+    }
+
+    result.age = mainData.substring(0, 2).toInt();
+    result.coins = mainData.substring(2, 4).toInt();
+    result.creatureType = mainData.substring(4, 6).toInt();
+    result.boolVal = mainData.substring(6, 8).toInt();
+    result.name = nameData.substring(0, 6);
+
+    // Remove embedded '\0'
+    int nullPos;
+    while ((nullPos = result.name.indexOf('\0')) != -1)
+    {
+        result.name.remove(nullPos, 1);
+    }
+    result.name.trim();
+
+    return result;
 }
 
 uint8_t encodeBools(bool A, bool B, bool C, bool D)
@@ -69,14 +117,6 @@ uint8_t encodeBools(bool A, bool B, bool C, bool D)
     result |= (C << 2);
     result |= (D << 3);
     return result;
-}
-
-void decodeBools(uint8_t bools, bool &A, bool &B, bool &C, bool &D)
-{
-    A = bools & 0x01;
-    B = (bools & 0x02) >> 1;
-    C = (bools & 0x04) >> 2;
-    D = (bools & 0x08) >> 3;
 }
 
 // Helper function to pad numbers with leading zeros
@@ -101,7 +141,7 @@ String padString(String str, int targetLength, char padChar = ' ')
     return str;
 }
 
-String readFromRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte blockAddr)
+String readFromRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte blockAddr, int &intPart, String &strPart)
 {
     Serial.println("[readFromRFID] Attempting to read block " + String(blockAddr));
 
@@ -131,7 +171,7 @@ String readFromRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte blockAddr)
         Serial.print("Authentication failed: ");
         Serial.println(mfrc522.GetStatusCodeName(status));
         mfrc522.PCD_StopCrypto1(); // Stop encryption on PCD
-        return "";
+        return "blank profile";
     }
 
     // Read data from the block
@@ -144,7 +184,7 @@ String readFromRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte blockAddr)
         Serial.print("Read failed: ");
         Serial.println(mfrc522.GetStatusCodeName(status));
         mfrc522.PCD_StopCrypto1(); // Stop encryption on PCD
-        return "";
+        return "blank profile";
     }
 
     // Stop encryption on PCD
@@ -157,12 +197,30 @@ String readFromRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte blockAddr)
         result += (char)buffer[i];
     }
 
+    // Trim any trailing null characters
+    result.trim();
+
     Serial.print("[readFromRFID] Raw block content: ");
     Serial.println(result);
 
+    // Separate the raw data into intPart and strPart
+    int sepIndex = result.indexOf('%');
+    if (sepIndex != -1)
+    {
+        String intPartStr = result.substring(0, sepIndex);
+        strPart = result.substring(sepIndex + 1);
+
+        // Convert intPartStr to integer
+        intPart = intPartStr.toInt();
+    }
+    else
+    {
+        // If no '%' is present, return "blank profile"
+        return "blank profile";
+    }
+
     return result;
 }
-
 bool writeRFIDData(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const RFIDData &data)
 {
     // Debug prints before constructing payload:
@@ -171,8 +229,8 @@ bool writeRFIDData(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const RFIDData &d
     Serial.println(data.age);
     Serial.print(" Coins: ");
     Serial.println(data.coins);
-    Serial.print(" CreatureType: ");
-    Serial.println(data.creatureType);
+    // Serial.print(" CreatureType: ");
+    // Serial.println(data.creatureType);
     Serial.print(" Bools: ");
     Serial.println(data.bools, BIN);
     Serial.print(" Name: ");
