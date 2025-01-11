@@ -16,6 +16,8 @@ struct Creature
 
 // Remove or comment out the old decode(const String &rawData);
 // Creature decode(const String &rawData);
+// Creature decode(int numericPart, const String &namePart);
+
 Creature decode(int numericPart, const String &namePart);
 
 #endif // CREATURE_H

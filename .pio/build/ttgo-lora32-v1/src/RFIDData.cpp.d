@@ -137,8 +137,7 @@
  .pio/libdeps/ttgo-lora32-v1/MFRC522/src/deprecated.h \
  C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/libraries/SPI/src/SPI.h \
  C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp32-hal-spi.h \
- src/Creature.h src/GlobalDefs.h \
- .pio/libdeps/ttgo-lora32-v1/TFT_eSPI/TFT_eSPI.h \
+ src/GlobalDefs.h .pio/libdeps/ttgo-lora32-v1/TFT_eSPI/TFT_eSPI.h \
  C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/cores/esp32/Print.h \
  .pio/libdeps/ttgo-lora32-v1/TFT_eSPI/User_Setup_Select.h \
  .pio/libdeps/ttgo-lora32-v1/TFT_eSPI/User_Setups/Setup25_TTGO_T_Display.h \

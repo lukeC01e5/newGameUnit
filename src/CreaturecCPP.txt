@@ -1,4 +1,4 @@
-#include "Creature.h"
+// #include "Creature.h"
 
 // Forward-declare your creatures array, or include a header that declares it.
 extern const char *creatures[35]; // Must match the array in main.cpp

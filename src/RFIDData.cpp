@@ -1,6 +1,6 @@
 // RFIDData.cpp
 #include "RFIDData.h"
-#include "Creature.h"
+// #include "Creature.h"
 #include <stdio.h> // For snprintf
 #include "GlobalDefs.h"
 
@@ -317,7 +317,6 @@ bool writeToRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const String &data,
     return true;
 }
 
-// Implementation of decode(int, String)
 Creature decode(int numericPart, const String &namePart)
 {
     Creature c;
@@ -390,6 +389,3 @@ Creature decode(int numericPart, const String &namePart)
 
     return c;
 }
-
-// If you need an older decode(const String &), keep it. Otherwise remove it.
-// Creature decode(const String &rawData) { /* old version */ }

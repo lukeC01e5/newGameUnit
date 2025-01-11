@@ -7,7 +7,7 @@
 #include <SPIFFS.h>
 #include <MFRC522.h>
 #include "RFIDData.h"
-#include "Creature.h"
+//#include "Creature.h"
 #include "arduino_secrets.h"
 #include "GlobalDefs.h"
 
@@ -268,13 +268,12 @@ bool cardProcessing = false;
 void loop()
 {
     // If we’re ready to write RFID data
-    // if (dataPending)
-    //{
-    // Wait until a new card is detected
+    if (dataPending)
+    {
+        // Wait until a new card is detected
 
-    startLoop();
+        // startLoop();
 
-    /*
         if (!cardProcessing && mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
         {
             cardProcessing = true; // We are now processing the card
@@ -420,12 +419,8 @@ void loop()
         }
 
         delay(100);
-
-
-
-        */
+    }
 }
-
 // ...tried commenting this out to see what happens.
 /*
 void exampleReadAndDecode(const String &rawRFID)

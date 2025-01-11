@@ -4,6 +4,7 @@
 
 #include <Arduino.h>
 #include <MFRC522.h>
+// #include "Creature.h"
 
 // Struct to hold RFID data
 struct RFIDData
@@ -25,6 +26,18 @@ struct RFIDParsed
     String name;
 };
 
+// Move Creature struct here:
+struct Creature
+{
+    String creatureName;
+    String customName;
+    String trainerName;
+    int trainerAge;
+    int coins;
+    int creatureType;
+    int boolVal;
+};
+
 extern RFIDData pendingData;
 extern bool dataPending;
 
@@ -35,7 +48,9 @@ String readFromRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte blockAddr, 
 bool writeToRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const String &data, byte blockAddr);
 bool writeRFIDData(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const RFIDData &data);
 void parseRFIDData(const String &data, RFIDData &rfidData);
-
 RFIDParsed parseRawRFID(const String &raw);
+
+// Add decode(...) prototype here:
+Creature decode(int numericPart, const String &namePart);
 
 #endif // RFIDDATA_H
