@@ -190,15 +190,18 @@ String readFromRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte blockAddr, 
     // Stop encryption on PCD
     mfrc522.PCD_StopCrypto1();
 
-    // Convert buffer to String
-    String result = "";
+    // Convert buffer to String (16 bytes + possible null terminators)
+    String result;
     for (byte i = 0; i < 16; i++)
     {
         result += (char)buffer[i];
     }
 
-    // Trim any trailing null characters
-    result.trim();
+    // Remove only trailing null (0x00) characters, keeping leading zeros
+    while (result.length() > 0 && result[result.length() - 1] == '\0')
+    {
+        result.remove(result.length() - 1, 1);
+    }
 
     Serial.print("[readFromRFID] Raw block content: ");
     Serial.println(result);
@@ -207,10 +210,12 @@ String readFromRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte blockAddr, 
     int sepIndex = result.indexOf('%');
     if (sepIndex != -1)
     {
+        // Keep the left side exactly as is (including leading zeros)
         String intPartStr = result.substring(0, sepIndex);
         strPart = result.substring(sepIndex + 1);
 
-        // Convert intPartStr to integer
+        // Convert to int if needed, but that loses leading zeros numerically
+        // If you need to preserve them for display, use intPartStr
         intPart = intPartStr.toInt();
     }
     else
@@ -221,6 +226,7 @@ String readFromRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte blockAddr, 
 
     return result;
 }
+
 bool writeRFIDData(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const RFIDData &data)
 {
     // Debug prints before constructing payload:
@@ -310,3 +316,80 @@ bool writeToRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const String &data,
     mfrc522.PCD_StopCrypto1();
     return true;
 }
+
+// Implementation of decode(int, String)
+Creature decode(int numericPart, const String &namePart)
+{
+    Creature c;
+
+    // Convert numericPart to an 8-digit string (leading zeros included)
+    char buffer[9];
+    snprintf(buffer, sizeof(buffer), "%08d", numericPart);
+    String mainData = buffer;
+    Serial.print("yes here?? ");
+    // Expect mainData to have 8 chars => [0..1] age, [2..3] coins, [4..5] creatureType, [6..7] boolVal
+    int lengthNeeded = 8;
+    if (mainData.length() < lengthNeeded)
+    {
+        Serial.println("decode: Not enough digits in numericPart");
+        return c; // return an empty Creature
+    }
+    Serial.print("yes here?? ");
+    // Parse fields
+    c.trainerAge = mainData.substring(0, 2).toInt();
+    c.coins = mainData.substring(2, 4).toInt();
+    c.creatureType = mainData.substring(4, 6).toInt();
+    c.boolVal = mainData.substring(6, 8).toInt();
+    // If your Creature struct has a boolVal, parse it here, e.g.:
+    // int boolVal    = mainData.substring(6, 8).toInt();
+
+    // Assign the name, up to 6 chars
+    if (namePart.length() > 6)
+    {
+        c.customName = namePart.substring(0, 6);
+    }
+    else
+    {
+        c.customName = namePart;
+    }
+
+    Serial.print("def not here?? ");
+
+    // Example creature lookup:
+    if (c.creatureType >= 0 && c.creatureType < 35)
+    {
+        c.creatureName = "CreatureLookup"; // or creatures[c.creatureType];
+    }
+    else
+    {
+        c.creatureName = "Unknown Creature";
+    }
+    Serial.print("gotchya ");
+    // Remove any embedded nulls
+    /*
+    int nullPos;
+    while ((nullPos = c.customName.indexOf('\0')) != -1)
+    {
+        c.customName.remove(nullPos, 1);
+    }
+*/
+    Serial.print("so here then?? ");
+
+    // Debug output
+    Serial.println("[decode] Created Creature from numericPart & namePart:");
+    Serial.print("  Age: ");
+    Serial.println(c.trainerAge);
+    Serial.print("  Coins: ");
+    Serial.println(c.coins);
+    Serial.print("  creatureType: ");
+    Serial.println(c.creatureType);
+    Serial.print("  customName: ");
+    Serial.println(c.customName);
+    Serial.print("  intVal: ");
+    Serial.println(c.boolVal);
+
+    return c;
+}
+
+// If you need an older decode(const String &), keep it. Otherwise remove it.
+// Creature decode(const String &rawData) { /* old version */ }

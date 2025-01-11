@@ -249,19 +249,8 @@ void setup()
     Serial.print("String part: ");
     Serial.println(myStrPart);
 
-    // Remove or comment out the old call to decode(rawData):
-    // Creature myCreature = decode(rawData);
-    // Serial.print("[setup] Hello ");
-    // Serial.println(myCreature.customName);
-
-    // ...existing code...
-
-    //  Decode it into a Creature
-    Creature myCreature = decode(rawData);
-
-    // Print to Serial
-    Serial.print("[setup] Hello ");
-    Serial.println(myCreature.customName);
+    // Decode it into a Creature
+    Creature myCreature = decode(myIntPart, myStrPart);
 
     // Show on TFT display
     tft.fillScreen(TFT_BLACK);
@@ -437,12 +426,12 @@ void loop()
         */
 }
 
-// ...existing includes & setup...
-
+// ...tried commenting this out to see what happens.
+/*
 void exampleReadAndDecode(const String &rawRFID)
 {
     // Convert raw string into a Creature object
-    Creature myCreature = decode(rawRFID);
+    //Creature myCreature = decode(rawRFID);
 
     // Optionally do something with myCreature here
     // Already printed fields in decode, but you can also do:
@@ -453,6 +442,7 @@ void exampleReadAndDecode(const String &rawRFID)
     Serial.println(myCreature.coins);
     // ...
 }
+*/
 
 // Example function to write raw data to block
 bool writeToRFID(const String &data, byte blockAddr)
@@ -520,6 +510,7 @@ bool writeToRFID(const String &data, byte blockAddr)
 
 void startLoop()
 {
+
     if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
     {
         // Remove or comment out the old 3-parameter call and replace with the new version:
@@ -532,4 +523,45 @@ void startLoop()
             // Your existing code here...
         }
     }
+    /*
+        Serial.println("does this even happen");
+        // Check if a new card is present
+        if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
+        {
+            Serial.println("[loop] New RFID card detected!");
+
+            // Read raw data from a typical block (e.g., block 1)
+            String raw = readFromRFID(mfrc522, key, 1);
+            if (raw.length() > 0)
+            {
+                Serial.print("Raw Data: ");
+                Serial.println(raw);
+
+                // Parse it immediately (no web form needed)
+                RFIDParsed parsed = parseRawRFID(raw);
+
+                // Print results
+                Serial.println("[loop] Parsed fields:");
+                Serial.print("  Age: ");
+                Serial.println(parsed.age);
+                Serial.print("  Coins: ");
+                Serial.println(parsed.coins);
+                Serial.print("  Creature Type: ");
+                Serial.println(parsed.creatureType);
+                Serial.print("  BoolVal: ");
+                Serial.println(parsed.boolVal);
+                Serial.print("  Name: ");
+                Serial.println(parsed.name);
+
+                // Display the name on the TFT
+                tft.fillScreen(TFT_BLACK);
+                tft.setCursor(0, 0);
+                tft.printf("Hello %s!", parsed.name.c_str());
+            }
+
+            // Halt the card so it won’t continuously re-read
+            mfrc522.PICC_HaltA();
+            mfrc522.PCD_StopCrypto1();
+        }
+        */
 }

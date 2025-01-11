@@ -11,9 +11,11 @@ struct Creature
   int trainerAge;      // First two digits from RFID data
   int coins;           // Next two digits
   int creatureType;    // Next two digits, corresponds to creatures array
+  int boolVal;         // Last two digits, can be used for boolean flags
 };
 
-// Add this function prototype
-Creature decode(const String &rawData);
+// Remove or comment out the old decode(const String &rawData);
+// Creature decode(const String &rawData);
+Creature decode(int numericPart, const String &namePart);
 
 #endif // CREATURE_H
