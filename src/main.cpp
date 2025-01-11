@@ -10,6 +10,7 @@
 // #include "Creature.h"
 #include "arduino_secrets.h"
 #include "GlobalDefs.h"
+#include <HTTPClient.h>
 
 // Create the AsyncWebServer on port 80
 AsyncWebServer server(80);
@@ -61,8 +62,6 @@ void createOrUpdateUserOnServer();
 void exampleReadAndDecode(const String &rawRFID);
 
 void startLoop();
-
-// RFIDParsed parseRawRFID(const String &raw);
 
 // Example handleFormSubmit with debug prints:
 void handleFormSubmit(AsyncWebServerRequest *request)
@@ -232,8 +231,6 @@ void setup()
     }
     Serial.println("here?????");
     // Once a card is detected, read raw data from a specific block
-
-    // ...existing code...
 
     // In setup(), after detecting a new card:
     int myIntPart = 0;
@@ -436,23 +433,6 @@ void loop()
         delay(100);
     }
 }
-// ...tried commenting this out to see what happens.
-/*
-void exampleReadAndDecode(const String &rawRFID)
-{
-    // Convert raw string into a Creature object
-    //Creature myCreature = decode(rawRFID);
-
-    // Optionally do something with myCreature here
-    // Already printed fields in decode, but you can also do:
-    Serial.println("[exampleReadAndDecode] Additional info about myCreature:");
-    Serial.print(" trainerAge: ");
-    Serial.println(myCreature.trainerAge);
-    Serial.print(" coins: ");
-    Serial.println(myCreature.coins);
-    // ...
-}
-*/
 
 // Example function to write raw data to block
 bool writeToRFID(const String &data, byte blockAddr)
@@ -516,62 +496,4 @@ bool writeToRFID(const String &data, byte blockAddr)
     mfrc522.PCD_StopCrypto1();
 
     return true;
-}
-
-void startLoop()
-{
-
-    if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
-    {
-        // Remove or comment out the old 3-parameter call and replace with the new version:
-        int myIntPart = 0;
-        String myStrPart;
-        String raw = readFromRFID(mfrc522, key, 1, myIntPart, myStrPart);
-
-        if (raw.length() > 0)
-        {
-            // Your existing code here...
-        }
-    }
-    /*
-        Serial.println("does this even happen");
-        // Check if a new card is present
-        if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
-        {
-            Serial.println("[loop] New RFID card detected!");
-
-            // Read raw data from a typical block (e.g., block 1)
-            String raw = readFromRFID(mfrc522, key, 1);
-            if (raw.length() > 0)
-            {
-                Serial.print("Raw Data: ");
-                Serial.println(raw);
-
-                // Parse it immediately (no web form needed)
-                RFIDParsed parsed = parseRawRFID(raw);
-
-                // Print results
-                Serial.println("[loop] Parsed fields:");
-                Serial.print("  Age: ");
-                Serial.println(parsed.age);
-                Serial.print("  Coins: ");
-                Serial.println(parsed.coins);
-                Serial.print("  Creature Type: ");
-                Serial.println(parsed.creatureType);
-                Serial.print("  BoolVal: ");
-                Serial.println(parsed.boolVal);
-                Serial.print("  Name: ");
-                Serial.println(parsed.name);
-
-                // Display the name on the TFT
-                tft.fillScreen(TFT_BLACK);
-                tft.setCursor(0, 0);
-                tft.printf("Hello %s!", parsed.name.c_str());
-            }
-
-            // Halt the card so it won’t continuously re-read
-            mfrc522.PICC_HaltA();
-            mfrc522.PCD_StopCrypto1();
-        }
-        */
 }

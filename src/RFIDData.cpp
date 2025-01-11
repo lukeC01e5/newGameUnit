@@ -339,8 +339,8 @@ Creature decode(int numericPart, const String &namePart)
     c.coins = mainData.substring(2, 4).toInt();
     c.creatureType = mainData.substring(4, 6).toInt();
     c.boolVal = mainData.substring(6, 8).toInt();
-    // If your Creature struct has a boolVal, parse it here, e.g.:
-    // int boolVal    = mainData.substring(6, 8).toInt();
+    //If your Creature struct has a boolVal, parse it here, e.g.:
+    //int boolVal    = mainData.substring(6, 8).toInt();
 
     // Assign the name, up to 6 chars
     if (namePart.length() > 6)
