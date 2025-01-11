@@ -7,7 +7,7 @@
 #include <SPIFFS.h>
 #include <MFRC522.h>
 #include "RFIDData.h"
-//#include "Creature.h"
+// #include "Creature.h"
 #include "arduino_secrets.h"
 #include "GlobalDefs.h"
 
@@ -143,9 +143,11 @@ void startWebServer()
         // Endpoint to check creature status
         server.on("/creatureStatus", HTTP_GET, [](AsyncWebServerRequest *request)
                   {
-            String jsonResponse = "{\"cardPresent\": " + String(cardPresent ? "true" : "false") +
-                                  ", \"hasCreature\": " + String(hasCreature ? "true" : "false") + "}";
-            request->send(200, "application/json", jsonResponse); });
+            // Build JSON with cardPresent and hasCreature
+            String response = "{";
+            response += "\"cardPresent\":" + String(cardPresent ? "true" : "false") + ",";
+            response += "\"hasCreature\":" + String(hasCreature ? "true" : "false") + "}";
+            request->send(200, "application/json", response); });
 
         // Start the server
         server.begin();
@@ -240,6 +242,16 @@ void setup()
     // Use the new readFromRFID signature
     String rawData = readFromRFID(mfrc522, key, 1, myIntPart, myStrPart);
 
+    // If valid data came back, mark cardPresent true
+    if (rawData != "blank profile")
+    {
+        cardPresent = true;
+    }
+    else
+    {
+        cardPresent = false;
+    }
+
     Serial.println("and here??");
     Serial.println(rawData);
 
@@ -251,6 +263,9 @@ void setup()
 
     // Decode it into a Creature
     Creature myCreature = decode(myIntPart, myStrPart);
+
+    // if customName is not empty, hasCreature = true
+    hasCreature = (myCreature.customName.length() > 0);
 
     // Show on TFT display
     tft.fillScreen(TFT_BLACK);
