@@ -34,10 +34,11 @@ jobs:
           - fqbn: arduino:samd:mkr1000
             platforms: |
               - name: arduino:samd
+            artifact-name-suffix: arduino-samd-mkr1000
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Compile examples
         uses: arduino/compile-sketches@v1
@@ -55,8 +56,8 @@ jobs:
           sketches-report-path: ${{ env.SKETCHES_REPORTS_PATH }}
 
       - name: Save sketches report as workflow artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           if-no-files-found: error
           path: ${{ env.SKETCHES_REPORTS_PATH }}
-          name: ${{ env.SKETCHES_REPORTS_PATH }}
+          name: sketches-report-${{ matrix.board.artifact-name-suffix }}

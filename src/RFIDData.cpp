@@ -1,6 +1,5 @@
-// RFIDData.cpp
+
 #include "RFIDData.h"
-// #include "Creature.h"
 #include <stdio.h> // For snprintf
 #include "GlobalDefs.h"
 
@@ -316,63 +315,40 @@ bool writeToRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const String &data,
     mfrc522.PCD_StopCrypto1();
     return true;
 }
-
 Creature decode(int numericPart, const String &namePart)
 {
+    // The Creature struct, per your new system, should look similar to:
+    // struct Creature {
+    //     int trainerAge;
+    //     int coins;
+    //     int creatureType;
+    //     String customName;
+    //     int intVal; // was boolVal
+    // };
+
     Creature c;
 
     // Convert numericPart to an 8-digit string (leading zeros included)
     char buffer[9];
     snprintf(buffer, sizeof(buffer), "%08d", numericPart);
     String mainData = buffer;
-    Serial.print("yes here?? ");
-    // Expect mainData to have 8 chars => [0..1] age, [2..3] coins, [4..5] creatureType, [6..7] boolVal
-    int lengthNeeded = 8;
-    if (mainData.length() < lengthNeeded)
+
+    // We expect exactly 8 chars: [0..1]=age, [2..3]=coins, [4..5]=creatureType, [6..7]=intVal
+    if (mainData.length() < 8)
     {
-        Serial.println("decode: Not enough digits in numericPart");
-        return c; // return an empty Creature
+        Serial.println("[decode] Not enough digits in numericPart");
+        return c; // return empty if invalid
     }
-    Serial.print("yes here?? ");
+
     // Parse fields
     c.trainerAge = mainData.substring(0, 2).toInt();
     c.coins = mainData.substring(2, 4).toInt();
     c.creatureType = mainData.substring(4, 6).toInt();
-    c.boolVal = mainData.substring(6, 8).toInt();
-    //If your Creature struct has a boolVal, parse it here, e.g.:
-    //int boolVal    = mainData.substring(6, 8).toInt();
+    c.intVal = mainData.substring(6, 8).toInt();
 
-    // Assign the name, up to 6 chars
-    if (namePart.length() > 6)
-    {
-        c.customName = namePart.substring(0, 6);
-    }
-    else
-    {
-        c.customName = namePart;
-    }
-
-    Serial.print("def not here?? ");
-
-    // Example creature lookup:
-    if (c.creatureType >= 0 && c.creatureType < 35)
-    {
-        c.creatureName = "CreatureLookup"; // or creatures[c.creatureType];
-    }
-    else
-    {
-        c.creatureName = "Unknown Creature";
-    }
-    Serial.print("gotchya ");
-    // Remove any embedded nulls
-    /*
-    int nullPos;
-    while ((nullPos = c.customName.indexOf('\0')) != -1)
-    {
-        c.customName.remove(nullPos, 1);
-    }
-*/
-    Serial.print("so here then?? ");
+    // Use namePart directly for customName (up to 6 chars if you want to limit it)
+    // For now, let's just store the full string:
+    c.customName = namePart;
 
     // Debug output
     Serial.println("[decode] Created Creature from numericPart & namePart:");
@@ -380,12 +356,12 @@ Creature decode(int numericPart, const String &namePart)
     Serial.println(c.trainerAge);
     Serial.print("  Coins: ");
     Serial.println(c.coins);
-    Serial.print("  creatureType: ");
+    Serial.print("  CreatureType: ");
     Serial.println(c.creatureType);
     Serial.print("  customName: ");
     Serial.println(c.customName);
     Serial.print("  intVal: ");
-    Serial.println(c.boolVal);
+    Serial.println(c.intVal);
 
     return c;
 }

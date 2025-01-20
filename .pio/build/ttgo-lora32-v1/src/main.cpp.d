@@ -300,4 +300,5 @@
  .pio/libdeps/ttgo-lora32-v1/MFRC522/src/MFRC522.h \
  .pio/libdeps/ttgo-lora32-v1/MFRC522/src/require_cpp11.h \
  .pio/libdeps/ttgo-lora32-v1/MFRC522/src/deprecated.h src/RFIDData.h \
- src/arduino_secrets.h src/GlobalDefs.h
+ src/arduino_secrets.h src/GlobalDefs.h \
+ .pio/libdeps/ttgo-lora32-v1/ArduinoHttpClient/src/HTTPClient.h

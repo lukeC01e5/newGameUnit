@@ -1,9 +1,9 @@
-esphome/ESPAsyncWebServer-esphome@^3.3.0
-bblanchon/ArduinoJson@^7.0.3
 pfeerick/elapsedMillis@^1.0.6
-SPIFFS
-arduino-libraries/ArduinoHttpClient@^0.5.0
-Wifi
-bodmer/TFT_eSPI@^2.5.43
-FS
+esphome/ESPAsyncWebServer-esphome@^3.3.0
 miguelbalboa/MFRC522@^1.4.11
+Wifi
+arduino-libraries/ArduinoHttpClient@^0.6.1
+FS
+bblanchon/ArduinoJson@^7.0.3
+SPIFFS
+bodmer/TFT_eSPI@^2.5.43

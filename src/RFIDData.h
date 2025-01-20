@@ -4,7 +4,6 @@
 
 #include <Arduino.h>
 #include <MFRC522.h>
-// #include "Creature.h"
 
 // Struct to hold RFID data
 struct RFIDData
@@ -26,18 +25,13 @@ struct RFIDParsed
     String name;
 };
 
-// Move Creature struct here:
-struct Creature
-{
-    String creatureName;
-    String customName;
-    String trainerName;
+struct Creature {
     int trainerAge;
     int coins;
     int creatureType;
-    int boolVal;
+    String customName;
+    int intVal; // Ensure this member exists if needed
 };
-
 extern RFIDData pendingData;
 extern bool dataPending;
 
