@@ -18,7 +18,7 @@ extern MFRC522::MIFARE_Key key;
 extern RFIDData pendingData;
 extern bool dataPending;
 extern TFT_eSPI tft;
-extern formSubmitted = true;
+extern bool formSubmitted;
 
 // extern MFRC522::Uid lastCardUid;
 
