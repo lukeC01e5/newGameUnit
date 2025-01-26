@@ -1,12 +1,6 @@
 //
 //
-//  got the POST and GET posts working
-//  problem now is that I need scanner to read the card
-//  with out me having to remove the card from the scanner and replace it
-//  that is getti annoying
-//
-//
-//
+
 //  worth noting loop is bacically for recieving data from the card
 //  an posting it to card
 
