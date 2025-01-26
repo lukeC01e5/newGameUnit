@@ -1,8 +1,9 @@
-//
-//
+/*
 
-//  worth noting loop is bacically for recieving data from the card
-//  an posting it to card
+have makrked sticking point with ////////////////////////////////////////////////////
+
+
+*/
 
 #include <Arduino.h>
 #include <TFT_eSPI.h>
@@ -45,11 +46,11 @@ MFRC522::Uid lastCardUid;
 // Track RFID card presence and profile status
 bool cardPresent = false;
 bool hasCreature = false;
-
-// Track previous RFID states for conditional printing
 bool lastCardPresent = false;
 bool lastHasCreature = false;
 bool cardProcessing = false;
+// bool formSubmitted = false; // Have exactly one definition
+//  ...existing code...
 
 // Global WiFiClient
 WiFiClient client;
@@ -129,39 +130,91 @@ void setup()
 
 void loop()
 {
-    // Check for a new/active card
-    if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
+    static bool initialized = false;
+
+    if (!initialized)
     {
+        // Wait until a card is presented (optional, but ensures a single read at startup)
+        while (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial())
+        {
+            delay(200);
+        }
+        Serial.println("card detected");
+        // Once a card is detected, read raw data from a specific block
+
+        // In setup(), after detecting a new card:
         int myIntPart = 0;
         String myStrPart;
+
+        // Use the new readFromRFID signature
         String rawData = readFromRFID(mfrc522, key, 1, myIntPart, myStrPart);
 
-        if (rawData != "blank profile")
+        // If valid data came back, mark cardPresent true
+        if (rawData.indexOf('%') != -1)
         {
+            // Card appears to have valid data
             cardPresent = true;
+            Serial.println("[loop] Found '%', continuing...");
         }
         else
         {
-            cardPresent = false;
+            cardPresent = true;
+            tft.println("blank profile");
+
+            while (!formSubmitted)
+            {
+                delay(100); // Small delay to prevent overwhelming the CPU
+            }
+
+            if (writeRFIDData(mfrc522, key, pendingData))
+            {
+                Serial.println("Write succeeded!");
+                tft.println("Write Succeeded!");
+                dataPending = false; // Clear pending state
+                hasCreature = true;  // Profile now exists
+                ESP.restart();
+            }
+            else
+            {
+                Serial.println("Write failed!");
+                tft.println("Write Failed!");
+                hasCreature = false;
+            }
+
+            // Reset the formSubmitted flag
+            formSubmitted = false;
+
+            // Halt the card and stop encryption
+            mfrc522.PICC_HaltA();
+            mfrc522.PCD_StopCrypto1();
+            tft.println("end of writeing new card");
         }
 
+        Serial.println("and here??");
         Serial.println(rawData);
+
+        // Show the split parts
         Serial.print("Integer part: ");
         Serial.println(myIntPart);
         Serial.print("String part: ");
         Serial.println(myStrPart);
 
+        // Decode it into a Creature
         Creature myCreature = decode(myIntPart, myStrPart);
+
+        // if customName is not empty, hasCreature = true
         hasCreature = (myCreature.customName.length() > 0);
 
         checkForCreature(myCreature);
-        if (newCreature)
+
+        if (newCreature == true)
         {
             sendCreatureToDatabase(myCreature);
         }
         else
         {
             Serial.println("Creature already exists." + myCreature.customName);
+            // return; // Exit the function early
         }
 
         // Show on TFT display
@@ -169,9 +222,12 @@ void loop()
         tft.setCursor(0, 0);
         tft.println("Hello " + myCreature.customName);
 
-        // Optionally halt the card if you don't want repeated reads
+        // Halt card so it won’t continue reading
         mfrc522.PICC_HaltA();
         mfrc522.PCD_StopCrypto1();
+        Serial.println("makes it to here");
+
+        initialized = true;
     }
 
     // Handle Writing RFID Data
@@ -189,6 +245,7 @@ void loop()
                 tft.println("Write Succeeded!");
                 dataPending = false; // Clear pending state
                 hasCreature = true;  // Profile now exists
+                ESP.restart();
             }
             else
             {
@@ -406,6 +463,8 @@ bool checkForCreature(const Creature &creature)
 
 void handleFormSubmit(AsyncWebServerRequest *request)
 {
+    Serial.print("should change form bool here");
+    formSubmitted = true;
     if (request->method() == HTTP_POST)
     {
         // Check parameters
