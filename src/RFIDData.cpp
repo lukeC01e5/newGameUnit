@@ -140,6 +140,7 @@ String padString(String str, int targetLength, char padChar = ' ')
     return str;
 }
 
+// ...existing code...
 String readFromRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte blockAddr, int &intPart, String &strPart)
 {
     Serial.println("[readFromRFID] Attempting to read block " + String(blockAddr));
@@ -196,7 +197,7 @@ String readFromRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte blockAddr, 
         result += (char)buffer[i];
     }
 
-    // Remove only trailing null (0x00) characters, keeping leading zeros
+    // Remove only trailing null characters
     while (result.length() > 0 && result[result.length() - 1] == '\0')
     {
         result.remove(result.length() - 1, 1);
@@ -205,27 +206,45 @@ String readFromRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte blockAddr, 
     Serial.print("[readFromRFID] Raw block content: ");
     Serial.println(result);
 
-    // Separate the raw data into intPart and strPart
+    // Separate the raw data into intPart (left of '%') and strPart (right of '%')
     int sepIndex = result.indexOf('%');
     if (sepIndex != -1)
     {
-        // Keep the left side exactly as is (including leading zeros)
         String intPartStr = result.substring(0, sepIndex);
         strPart = result.substring(sepIndex + 1);
-
-        // Convert to int if needed, but that loses leading zeros numerically
-        // If you need to preserve them for display, use intPartStr
         intPart = intPartStr.toInt();
+
+        // Check if all booleans are true (assuming they are stored in the lower bits of intPart)
+        bool A = (intPart & 0x01) != 0;
+        bool B = (intPart & 0x02) != 0;
+        bool C = (intPart & 0x04) != 0;
+        bool D = (intPart & 0x08) != 0;
+
+        Serial.println("[readFromRFID] Bool values:");
+        Serial.println("A: " + String(A));
+        Serial.println("B: " + String(B));
+        Serial.println("C: " + String(C));
+        Serial.println("D: " + String(D));
+
+        if (A && B && C && D)
+        {
+            allChallBools = true;
+            Serial.println("[readFromRFID] allChallBools set to TRUE");
+        }
+        else
+        {
+            allChallBools = false;
+            Serial.println("[readFromRFID] allChallBools set to FALSE");
+        }
     }
     else
     {
-        // If no '%' is present, return "blank profile"
         return "blank profile";
     }
 
     return result;
 }
-
+// ...existing code...
 bool writeRFIDData(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const RFIDData &data)
 {
     // Debug prints before constructing payload:

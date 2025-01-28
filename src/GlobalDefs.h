@@ -19,6 +19,7 @@ extern RFIDData pendingData;
 extern bool dataPending;
 extern TFT_eSPI tft;
 extern bool formSubmitted;
+extern bool allChallBools;
 
 // extern MFRC522::Uid lastCardUid;
 

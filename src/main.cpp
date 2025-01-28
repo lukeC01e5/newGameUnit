@@ -2,6 +2,11 @@
 
 have makrked sticking point with ////////////////////////////////////////////////////
 
+Ive just changed the code to create a allChallBool bool
+which if all values are true then it posts  5 coin to account
+got stuck on POST process
+I think the problem is that the api is wanting a userID which is the long complicated code
+but i need it to work using the creature name
 
 */
 
@@ -49,8 +54,6 @@ bool hasCreature = false;
 bool lastCardPresent = false;
 bool lastHasCreature = false;
 bool cardProcessing = false;
-// bool formSubmitted = false; // Have exactly one definition
-//  ...existing code...
 
 // Global WiFiClient
 WiFiClient client;
@@ -69,9 +72,9 @@ void exampleReadAndDecode(const String &rawRFID);
 void handleFormSubmit(AsyncWebServerRequest *request);
 void startWebServer();
 void clearUid(MFRC522::Uid &uid);
-
 bool sendCreatureToDatabase(const Creature &creature);
 bool checkForCreature(const Creature &creature);
+void add_5_coin(const String &customName);
 
 // Setup
 void setup()
@@ -149,6 +152,32 @@ void loop()
         // Use the new readFromRFID signature
         String rawData = readFromRFID(mfrc522, key, 1, myIntPart, myStrPart);
 
+        Serial.println("[setup] RFID Data read on reboot:");
+        Serial.println("intPart: " + String(myIntPart));
+        Serial.println("strPart: " + myStrPart);
+
+        // Check the bool values
+        bool A = (myIntPart & 0x01) != 0;
+        bool B = (myIntPart & 0x02) != 0;
+        bool C = (myIntPart & 0x04) != 0;
+        bool D = (myIntPart & 0x08) != 0;
+
+        Serial.println("Bool A: " + String(A));
+        Serial.println("Bool B: " + String(B));
+        Serial.println("Bool C: " + String(C));
+        Serial.println("Bool D: " + String(D));
+
+        if (A && B && C && D)
+        {
+            allChallBools = true;
+            Serial.println("[setup] allChallBools set to TRUE");
+        }
+        else
+        {
+            allChallBools = false;
+            Serial.println("[setup] allChallBools set to FALSE");
+        }
+
         // If valid data came back, mark cardPresent true
         if (rawData.indexOf('%') != -1)
         {
@@ -216,7 +245,6 @@ void loop()
             Serial.println("Creature already exists." + myCreature.customName);
             // return; // Exit the function early
         }
-
         // Show on TFT display
         tft.fillScreen(TFT_BLACK);
         tft.setCursor(0, 0);
@@ -226,6 +254,19 @@ void loop()
         mfrc522.PICC_HaltA();
         mfrc522.PCD_StopCrypto1();
         Serial.println("makes it to here");
+
+        // Assuming userId is available as myCreature.userId
+        if (allChallBools)
+        {
+            add_5_coin(myCreature.customName);
+            tft.println("5 Coin added");
+        }
+        else
+        {
+            // tft.fillScreen(TFT_BLACK);
+            // tft.setCursor(0, 0);
+            tft.println("Challenges to be completed");
+        }
 
         initialized = true;
     }
@@ -460,33 +501,41 @@ bool checkForCreature(const Creature &creature)
     wifiClient.stop();
     return (statusCode == 200);
 }
-
+// ...existing code...
 void handleFormSubmit(AsyncWebServerRequest *request)
 {
+    // Indicate that a form has been submitted, used by other parts of the program
     Serial.print("should change form bool here");
     formSubmitted = true;
+
+    // Only proceed if the request is an HTTP POST
     if (request->method() == HTTP_POST)
     {
-        // Check parameters
+        // Ensure the required parameters are present
         if (request->hasParam("age", true) &&
             request->hasParam("coins", true) &&
             request->hasParam("creatureType", true) &&
             request->hasParam("name", true))
         {
-            // Populate pendingData from POST params
+            // Extract form data from request and populate pendingData
             pendingData.age = request->getParam("age", true)->value().toInt();
             pendingData.coins = request->getParam("coins", true)->value().toInt();
             pendingData.creatureType = request->getParam("creatureType", true)->value().toInt();
             pendingData.name = request->getParam("name", true)->value();
 
-            // Parse booleans
+            // Convert checkbox values into a single encoded integer (encodeBools is defined elsewhere)
             bool A = request->hasParam("A", true);
             bool B = request->hasParam("B", true);
             bool C = request->hasParam("C", true);
             bool D = request->hasParam("D", true);
             pendingData.bools = encodeBools(A, B, C, D);
-
-            // Debug prints
+            /*
+                        // If all checkboxes are true, set this special boolean flag
+                        if (A && B && C && D) {
+                            allChallBools = true;
+                        }
+            */
+            // Debug output to the serial monitor
             Serial.println("[handleFormSubmit] Received NEW form data:");
             Serial.print(" Age: ");
             Serial.println(pendingData.age);
@@ -499,19 +548,21 @@ void handleFormSubmit(AsyncWebServerRequest *request)
             Serial.print(" Name: ");
             Serial.println(pendingData.name);
 
-            // Mark as pending
+            // Notify other code that new form data is ready to be processed
             dataPending = true;
             Serial.println("[handleFormSubmit] dataPending set to TRUE.");
 
-            // Respond to client
+            // Send a response to the client indicating success
             request->send(200, "text/html", "Data received. Please present your RFID card to complete write.");
         }
         else
         {
+            // Inform the client that not all expected parameters were provided
             request->send(400, "text/html", "Missing parameters!");
         }
     }
 }
+// ...existing code...
 
 // Start the web server
 void startWebServer()
@@ -564,5 +615,65 @@ void clearUid(MFRC522::Uid &uid)
     for (byte i = 0; i < sizeof(uid.uidByte); i++)
     {
         uid.uidByte[i] = 0;
+    }
+}
+
+void add_5_coin(const String &customName)
+{
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        Serial.println("[add_5_coin] WiFi not connected.");
+        return;
+    }
+
+    Serial.println("[add_5_coin] WiFi connected. Starting HTTP POST request...");
+
+    WiFiClient wifiClient;
+    HttpClient http(wifiClient, "gameapi-2e9bb6e38339.herokuapp.com", 80);
+
+    // Build JSON payload
+    String payload = "{";
+    payload += "\"customName\":\"" + customName + "\"";
+    payload += "}";
+
+    Serial.println("[add_5_coin] Payload: " + payload);
+
+    // Connect to the server
+    if (wifiClient.connect("gameapi-2e9bb6e38339.herokuapp.com", 80))
+    {
+        Serial.println("[add_5_coin] Connected to server.");
+
+        // Send HTTP POST request
+        http.beginRequest();
+        http.post("/api/v1/add_5_coin");
+        http.sendHeader("Content-Type", "application/json");
+        http.sendHeader("Content-Length", payload.length());
+        http.beginBody();
+        http.print(payload);
+        http.endRequest();
+
+        Serial.println("[add_5_coin] HTTP POST request sent. Waiting for response...");
+
+        // Get the response
+        int statusCode = http.responseStatusCode();
+        String response = http.responseBody();
+
+        if (statusCode > 0)
+        {
+            Serial.println("[add_5_coin] Response code: " + String(statusCode));
+            Serial.println("[add_5_coin] Response: " + response);
+        }
+        else
+        {
+            Serial.print("[add_5_coin] Error, status code: ");
+            Serial.println(statusCode);
+        }
+
+        // Close the connection
+        wifiClient.stop();
+    }
+    else
+    {
+        Serial.println("[add_5_coin] Connection failed.");
     }
 }

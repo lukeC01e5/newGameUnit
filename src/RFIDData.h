@@ -25,12 +25,14 @@ struct RFIDParsed
     String name;
 };
 
-struct Creature {
+struct Creature
+{
     int trainerAge;
     int coins;
     int creatureType;
     String customName;
     int intVal; // Ensure this member exists if needed
+    // String userId;
 };
 extern RFIDData pendingData;
 extern bool dataPending;
