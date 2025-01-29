@@ -1,0 +1,7 @@
+# ...existing code...
+
+# Ignore PlatformIO build directory
+.pio/build/
+
+# Ignore temporary files
+.pio/build/ttgo-lora32-v1/*.tmp

@@ -34,7 +34,7 @@ struct Creature
     int intVal; // Ensure this member exists if needed
     // String userId;
 };
-extern RFIDData pendingData;
+// extern RFIDData pendingData; // Remove or comment out this line
 extern bool dataPending;
 
 uint8_t encodeBools(bool A, bool B, bool C, bool D);
@@ -48,5 +48,6 @@ RFIDParsed parseRawRFID(const String &raw);
 
 // Add decode(...) prototype here:
 Creature decode(int numericPart, const String &namePart);
+bool clearChallBools(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const Creature &creature);
 
 #endif // RFIDDATA_H

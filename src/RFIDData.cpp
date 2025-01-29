@@ -1,4 +1,3 @@
-
 #include "RFIDData.h"
 #include <stdio.h> // For snprintf
 #include "GlobalDefs.h"
@@ -334,6 +333,7 @@ bool writeToRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const String &data,
     mfrc522.PCD_StopCrypto1();
     return true;
 }
+
 Creature decode(int numericPart, const String &namePart)
 {
     // The Creature struct, per your new system, should look similar to:
@@ -383,4 +383,28 @@ Creature decode(int numericPart, const String &namePart)
     Serial.println(c.intVal);
 
     return c;
+}
+
+bool clearChallBools(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const Creature &creature)
+{
+    Serial.println(creature.customName);
+
+    // 1) Set intVal to 0
+    Creature updatedCreature = creature;
+    updatedCreature.intVal = 0;
+
+    // 2) Build payload: "AA CC TT BB%NAME" (each field is 2 digits)
+    char buffer[15];
+    snprintf(buffer, sizeof(buffer), "%02d%02d%02d%02d%%%s",
+             updatedCreature.trainerAge,
+             updatedCreature.coins,
+             updatedCreature.creatureType,
+             updatedCreature.intVal,
+             updatedCreature.customName.substring(0, 6).c_str());
+    String payload = String(buffer);
+
+    Serial.print("[clearChallBools] Final payload ready...... ");
+
+    // 3) Write to RFID
+    return writeToRFID(mfrc522, key, payload, 1);
 }

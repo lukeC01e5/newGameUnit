@@ -23,6 +23,16 @@ but i need it to work using the creature name
 #include "GlobalDefs.h"
 #include <HTTPClient.h>
 
+// Forward declarations if they're in a different .cpp and not included by the header:
+void displayRFIDData(const RFIDData &data);
+void displayRFIDParsed(const RFIDParsed &data);
+void displayCreature(const Creature &creature);
+
+// Make sure you declare variables you want to display:
+// String pendingData; // Remove or comment this out
+RFIDParsed parsedData;
+Creature myCreature;
+
 // Create the AsyncWebServer on port 80
 AsyncWebServer server(80);
 
@@ -75,6 +85,7 @@ void clearUid(MFRC522::Uid &uid);
 bool sendCreatureToDatabase(const Creature &creature);
 bool checkForCreature(const Creature &creature);
 void add_5_coin(const String &customName);
+// void displayRFIDParsed(const RFIDParsed &data);
 
 // Setup
 void setup()
@@ -131,18 +142,23 @@ void setup()
     Serial.println("[setup] Place an RFID card now to read...");
 }
 
+void waitForCard()
+{
+    while (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial())
+    {
+        delay(200);
+        Serial.println("Waiting for RFID tag...");
+    }
+}
+
 void loop()
 {
     static bool initialized = false;
 
     if (!initialized)
     {
-        // Wait until a card is presented (optional, but ensures a single read at startup)
-        while (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial())
-        {
-            delay(200);
-        }
-        Serial.println("card detected");
+        waitForCard(); // Loop until card is detected
+        Serial.println("Card detected");
         // Once a card is detected, read raw data from a specific block
 
         // In setup(), after detecting a new card:
@@ -260,6 +276,18 @@ void loop()
         {
             add_5_coin(myCreature.customName);
             tft.println("5 Coin added");
+            ////////////////////////////////////////////////
+            displayCreature(myCreature);
+
+            //     /*
+            if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
+            {
+                // Re-authenticate or finalize any pending operations if needed
+                bool success = clearChallBools(mfrc522, key, myCreature);
+                Serial.println(success ? "[loop] clearChallBools success" : "[loop] clearChallBools failed");
+            }
+            //     */
+            ////////////////////////////////////////////////
         }
         else
         {
@@ -268,7 +296,12 @@ void loop()
             tft.println("Challenges to be completed");
         }
 
+        // Example call to clearChallBools
+        // bool success = clearChallBools(mfrc522, key, myCreature);
+
         initialized = true;
+
+        Serial.println("[loop] finishes here when challbool is empty");
     }
 
     // Handle Writing RFID Data
@@ -676,4 +709,34 @@ void add_5_coin(const String &customName)
     {
         Serial.println("[add_5_coin] Connection failed.");
     }
+}
+
+void displayRFIDData(const RFIDData &data)
+{
+    Serial.println("RFIDData:");
+    Serial.println(" Name: " + data.name);
+    Serial.println(" Age: " + String(data.age));
+    Serial.println(" Coins: " + String(data.coins));
+    Serial.println(" CreatureType: " + String(data.creatureType));
+    Serial.println(" Bools: " + String(data.bools, BIN));
+}
+
+void displayRFIDParsed(const RFIDParsed &data)
+{
+    Serial.println("RFIDParsed:");
+    Serial.println(" Age: " + String(data.age));
+    Serial.println(" Coins: " + String(data.coins));
+    Serial.println(" CreatureType: " + String(data.creatureType));
+    Serial.println(" BoolVal: " + String(data.boolVal, BIN));
+    Serial.println(" Name: " + data.name);
+}
+
+void displayCreature(const Creature &creature)
+{
+    Serial.println("Creature:");
+    Serial.println(" TrainerAge: " + String(creature.trainerAge));
+    Serial.println(" Coins: " + String(creature.coins));
+    Serial.println(" CreatureType: " + String(creature.creatureType));
+    Serial.println(" CustomName: " + creature.customName);
+    Serial.println(" IntVal: " + String(creature.intVal));
 }
