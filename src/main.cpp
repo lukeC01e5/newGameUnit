@@ -1,12 +1,7 @@
 /*
 
-have makrked sticking point with ////////////////////////////////////////////////////
-
-Ive just changed the code to create a allChallBool bool
-which if all values are true then it posts  5 coin to account
-got stuck on POST process
-I think the problem is that the api is wanting a userID which is the long complicated code
-but i need it to work using the creature name
+trying to re-figure
+so that rfid code matches new requirements
 
 */
 
@@ -217,7 +212,7 @@ void loop()
                 tft.println("Write Succeeded!");
                 dataPending = false; // Clear pending state
                 hasCreature = true;  // Profile now exists
-                ESP.restart();
+                ESP.restart();       // This line resets the ESP32
             }
             else
             {
@@ -246,6 +241,16 @@ void loop()
 
         // Decode it into a Creature
         Creature myCreature = decode(myIntPart, myStrPart);
+
+        // Example usage after reading:
+        Serial.print("YearLevel: ");
+        Serial.println(myCreature.yearLevel);
+        Serial.print("ChallengeCode: ");
+        Serial.println(myCreature.challengeCode);
+        Serial.print("WrongGuesses: ");
+        Serial.println(myCreature.wrongGuesses);
+        Serial.print("BoolVal: ");
+        Serial.println(myCreature.boolVal);
 
         // if customName is not empty, hasCreature = true
         hasCreature = (myCreature.customName.length() > 0);
@@ -319,7 +324,7 @@ void loop()
                 tft.println("Write Succeeded!");
                 dataPending = false; // Clear pending state
                 hasCreature = true;  // Profile now exists
-                ESP.restart();
+                ESP.restart();       // This line resets the ESP32
             }
             else
             {
@@ -428,11 +433,11 @@ bool sendCreatureToDatabase(const Creature &creature)
 
     // Build JSON payload
     String payload = "{";
-    payload += "\"age\":" + String(creature.trainerAge) + ",";
-    payload += "\"coins\":" + String(creature.coins) + ",";
-    payload += "\"creatureType\":" + String(creature.creatureType) + ",";
+    payload += "\"age\":" + String(creature.yearLevel) + ",";
+    payload += "\"coins\":" + String(creature.challengeCode) + ",";
+    payload += "\"creatureType\":" + String(creature.wrongGuesses) + ",";
     payload += "\"customName\":\"" + creature.customName + "\",";
-    payload += "\"intVal\":" + String(creature.intVal);
+    payload += "\"intVal\":" + String(creature.boolVal);
     payload += "}";
 
     Serial.println("Payload: " + payload);
@@ -547,14 +552,18 @@ void handleFormSubmit(AsyncWebServerRequest *request)
         // Ensure the required parameters are present
         if (request->hasParam("age", true) &&
             request->hasParam("coins", true) &&
-            request->hasParam("creatureType", true) &&
-            request->hasParam("name", true))
+            request->hasParam("wrong", true) &&
+            request->hasParam("name", true) &&
+            request->hasParam("creatureType", true))
         {
             // Extract form data from request and populate pendingData
-            pendingData.age = request->getParam("age", true)->value().toInt();
-            pendingData.coins = request->getParam("coins", true)->value().toInt();
-            pendingData.creatureType = request->getParam("creatureType", true)->value().toInt();
+            pendingData.yearLevel = request->getParam("age", true)->value().toInt();
+            pendingData.challengeCode = request->getParam("coins", true)->value().toInt();
+            pendingData.wrongGuesses = request->getParam("wrong", true)->value().toInt();
             pendingData.name = request->getParam("name", true)->value();
+
+            // Assign creatureType to the global Creature object only
+            myCreature.creatureType = request->getParam("creatureType", true)->value().toInt();
 
             // Convert checkbox values into a single encoded integer (encodeBools is defined elsewhere)
             bool A = request->hasParam("A", true);
@@ -570,12 +579,12 @@ void handleFormSubmit(AsyncWebServerRequest *request)
             */
             // Debug output to the serial monitor
             Serial.println("[handleFormSubmit] Received NEW form data:");
-            Serial.print(" Age: ");
-            Serial.println(pendingData.age);
-            Serial.print(" Coins: ");
-            Serial.println(pendingData.coins);
-            Serial.print(" CreatureType: ");
-            Serial.println(pendingData.creatureType);
+            Serial.print(" Year Level: ");
+            Serial.println(pendingData.yearLevel);
+            Serial.print(" Challenge Code: ");
+            Serial.println(pendingData.challengeCode);
+            Serial.print(" Wrong Guesses: ");
+            Serial.println(pendingData.wrongGuesses);
             Serial.print(" Bools (bin): ");
             Serial.println(pendingData.bools, BIN);
             Serial.print(" Name: ");
@@ -715,18 +724,18 @@ void displayRFIDData(const RFIDData &data)
 {
     Serial.println("RFIDData:");
     Serial.println(" Name: " + data.name);
-    Serial.println(" Age: " + String(data.age));
-    Serial.println(" Coins: " + String(data.coins));
-    Serial.println(" CreatureType: " + String(data.creatureType));
+    Serial.println(" Year Level: " + String(data.yearLevel));
+    Serial.println(" Challenge Code: " + String(data.challengeCode));
+    Serial.println(" Wrong Guesses: " + String(data.wrongGuesses));
     Serial.println(" Bools: " + String(data.bools, BIN));
 }
 
 void displayRFIDParsed(const RFIDParsed &data)
 {
     Serial.println("RFIDParsed:");
-    Serial.println(" Age: " + String(data.age));
-    Serial.println(" Coins: " + String(data.coins));
-    Serial.println(" CreatureType: " + String(data.creatureType));
+    Serial.println(" Year Level: " + String(data.yearLevel));
+    Serial.println(" Challenge Code: " + String(data.challengeCode));
+    Serial.println(" Wrong Guesses: " + String(data.wrongGuesses));
     Serial.println(" BoolVal: " + String(data.boolVal, BIN));
     Serial.println(" Name: " + data.name);
 }
@@ -734,9 +743,9 @@ void displayRFIDParsed(const RFIDParsed &data)
 void displayCreature(const Creature &creature)
 {
     Serial.println("Creature:");
-    Serial.println(" TrainerAge: " + String(creature.trainerAge));
-    Serial.println(" Coins: " + String(creature.coins));
-    Serial.println(" CreatureType: " + String(creature.creatureType));
+    Serial.println(" TrainerAge: " + String(creature.yearLevel));
+    Serial.println(" Coins: " + String(creature.challengeCode));
+    Serial.println(" CreatureType: " + String(creature.wrongGuesses));
     Serial.println(" CustomName: " + creature.customName);
-    Serial.println(" IntVal: " + String(creature.intVal));
+    Serial.println(" IntVal: " + String(creature.boolVal));
 }

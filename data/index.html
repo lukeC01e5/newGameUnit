@@ -13,15 +13,19 @@
   <h2>Player Setup</h2>
   <form action="/submit" method="POST">
     <!-- Age Input -->
-    <label for="age">Age (00-99):</label>
-    <input type="number" id="age" name="age" min="0" max="99" required><br><br>
+    <label for="age">Year Level (0-9):</label>
+    <input type="number" id="age" name="age" min="0" max="9" required><br><br>
     
-    <!-- Coins Input -->
-    <label for="coins">Coins (00-99):</label>
-    <input type="number" id="coins" name="coins" min="0" max="99" required><br><br>
+    <!-- challange code -->
+    <label for="coins">Challenge Code (00-99):</label>
+    <input type="number" id="coins" name="coins" min="0" max="999" required><br><br>
+
+    <!-- wrong guesses -->
+    <label for="wrongGuesses">wrongGuesses (0-9):</label>
+    <input type="wrongGuesses" id="wrongGuesses" name="wrong" min="0" max="9" required><br><br>
     
     <!-- Creature Type Dropdown -->
-    <label for="creatureType">Creature Type:</label>
+    <label for="creatureType">creatureType (0-34):</label>
     <select id="creatureType" name="creatureType" required>
       <option value="0">No Creature</option>
       <option value="1">Flamingo</option>

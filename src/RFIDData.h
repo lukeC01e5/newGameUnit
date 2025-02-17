@@ -9,30 +9,30 @@
 struct RFIDData
 {
     String name;      // 6 characters max
-    int age;          // 00-99
-    int coins;        // 00-99
-    int creatureType; // 00-34 (0 reserved for 'no creature')
+    int yearLevel;          // 00-99
+    int challengeCode;        // 00-99
+    int wrongGuesses; // 00-34 (0 reserved for 'no creature')
     uint8_t bools;    // 0-15 representing 4 boolean values
 };
 
 // Add RFIDParsed struct BEFORE references to parseRawRFID
 struct RFIDParsed
 {
-    int age;
-    int coins;
-    int creatureType;
-    int boolVal;
+    uint8_t boolVal; 
+    int yearLevel;          // 00-99
+    int challengeCode;        // 00-99
+    int wrongGuesses; // 00-34 (0 reserved for 'no creature')
     String name;
 };
 
 struct Creature
 {
-    int trainerAge;
-    int coins;
-    int creatureType;
+    int yearLevel;       // 1 digit (1-9)
+    int challengeCode;   // 3 digits (000-999)
+    int wrongGuesses;    // 1 digit (0-9)
+    int boolVal;         // unchanged
+    int creatureType;    // 2 digit (0-9)
     String customName;
-    int intVal; // Ensure this member exists if needed
-    // String userId;
 };
 // extern RFIDData pendingData; // Remove or comment out this line
 extern bool dataPending;

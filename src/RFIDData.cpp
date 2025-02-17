@@ -16,24 +16,24 @@ void parseRFIDData(const String &data, RFIDData &rfidData)
     String mainData = data.substring(0, separatorIndex);
     String nameData = data.substring(separatorIndex + 1);
 
-    // Ensure mainData has exactly 8 characters (AA CC TT BB)
-    if (mainData.length() != 8)
+    // Ensure mainData has exactly 7 characters (Y CCC W BB)
+    if (mainData.length() != 7)
     {
-        Serial.println("Invalid data format: Expected 8 characters in main data");
+        Serial.println("Invalid data format: Expected 7 characters in main data");
         return;
     }
 
-    // Extract Age
-    rfidData.age = mainData.substring(0, 2).toInt();
+    // Extract Year Level
+    rfidData.yearLevel = mainData.substring(0, 1).toInt();
 
-    // Extract Coins
-    rfidData.coins = mainData.substring(2, 4).toInt();
+    // Extract Challenge Code
+    rfidData.challengeCode = mainData.substring(1, 4).toInt();
 
-    // Extract Creature Type
-    rfidData.creatureType = mainData.substring(4, 6).toInt();
+    // Extract Wrong Guesses
+    rfidData.wrongGuesses = mainData.substring(4, 5).toInt();
 
     // Extract Boolean Values
-    rfidData.bools = mainData.substring(6, 8).toInt();
+    rfidData.bools = mainData.substring(5, 7).toInt();
 
     // Extract Custom Name (ensure it's trimmed to 6 characters)
     if (nameData.length() > 6)
@@ -47,12 +47,12 @@ void parseRFIDData(const String &data, RFIDData &rfidData)
 
     // Debugging output
     Serial.println("Parsed RFID Data:");
-    Serial.print("Age: ");
-    Serial.println(rfidData.age);
-    Serial.print("Coins: ");
-    Serial.println(rfidData.coins);
-    // Serial.print("Creature Type: ");
-    // Serial.println(rfidData.creatureType);
+    Serial.print("Year Level: ");
+    Serial.println(rfidData.yearLevel);
+    Serial.print("Challenge Code: ");
+    Serial.println(rfidData.challengeCode);
+    Serial.print("Wrong Guesses: ");
+    Serial.println(rfidData.wrongGuesses);
     Serial.print("Bools: ");
     Serial.println(rfidData.bools, BIN); // Print as binary
 
@@ -84,17 +84,17 @@ RFIDParsed parseRawRFID(const String &raw)
     String mainData = raw.substring(0, sepIndex);
     String nameData = raw.substring(sepIndex + 1);
 
-    if (mainData.length() < 8)
+    if (mainData.length() < 7)
     {
-        Serial.println("Invalid data format: Expected 8 chars in main data");
+        Serial.println("Invalid data format: Expected 7 chars in main data");
         return result;
     }
 
-    result.age = mainData.substring(0, 2).toInt();
-    result.coins = mainData.substring(2, 4).toInt();
-    result.creatureType = mainData.substring(4, 6).toInt();
-    result.boolVal = mainData.substring(6, 8).toInt();
-    result.name = nameData.substring(0, 6);
+    result.yearLevel = mainData.substring(0, 1).toInt();
+    result.challengeCode = mainData.substring(1, 4).toInt();
+    result.wrongGuesses = mainData.substring(4, 5).toInt();
+    result.boolVal = mainData.substring(5, 7).toInt();
+    result.name = nameData;
 
     // Remove embedded '\0'
     int nullPos;
@@ -248,24 +248,24 @@ bool writeRFIDData(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const RFIDData &d
 {
     // Debug prints before constructing payload:
     Serial.println("[writeRFIDData] Preparing to write data:");
-    Serial.print(" Age: ");
-    Serial.println(data.age);
-    Serial.print(" Coins: ");
-    Serial.println(data.coins);
-    // Serial.print(" CreatureType: ");
-    // Serial.println(data.creatureType);
+    Serial.print(" Year Level: ");
+    Serial.println(data.yearLevel);
+    Serial.print(" Challenge Code: ");
+    Serial.println(data.challengeCode);
+    Serial.print(" Wrong Guesses: ");
+    Serial.println(data.wrongGuesses);
     Serial.print(" Bools: ");
     Serial.println(data.bools, BIN);
     Serial.print(" Name: ");
     Serial.println(data.name);
 
-    // Create payload: "AA CC TT BB %NAME"
-    char buffer[15];
+    // Create payload: "Y CCC W BB %NAME"
+    char buffer[16]; // Increased from 12 to 16
     memset(buffer, 0, sizeof(buffer));
-    snprintf(buffer, sizeof(buffer), "%02d%02d%02d%02d%%%s",
-             data.age,
-             data.coins,
-             data.creatureType,
+    snprintf(buffer, sizeof(buffer), "%01d%03d%01d%02d%%%s",
+             data.yearLevel,
+             data.challengeCode,
+             data.wrongGuesses,
              data.bools,
              data.name.substring(0, 6).c_str());
     String payload = String(buffer);
@@ -338,32 +338,32 @@ Creature decode(int numericPart, const String &namePart)
 {
     // The Creature struct, per your new system, should look similar to:
     // struct Creature {
-    //     int trainerAge;
-    //     int coins;
-    //     int creatureType;
+    //     int yearLevel;
+    //     int challengeCode;
+    //     int wrongGuesses;
     //     String customName;
     //     int intVal; // was boolVal
     // };
 
     Creature c;
 
-    // Convert numericPart to an 8-digit string (leading zeros included)
-    char buffer[9];
-    snprintf(buffer, sizeof(buffer), "%08d", numericPart);
+    // Convert numericPart to a 7-digit string (leading zeros included)
+    char buffer[8];
+    snprintf(buffer, sizeof(buffer), "%07d", numericPart);
     String mainData = buffer;
 
-    // We expect exactly 8 chars: [0..1]=age, [2..3]=coins, [4..5]=creatureType, [6..7]=intVal
-    if (mainData.length() < 8)
+    // We expect exactly 7 chars: [0]=yearLevel, [1..3]=challengeCode, [4]=wrongGuesses, [5..6]=intVal
+    if (mainData.length() < 7)
     {
         Serial.println("[decode] Not enough digits in numericPart");
         return c; // return empty if invalid
     }
 
     // Parse fields
-    c.trainerAge = mainData.substring(0, 2).toInt();
-    c.coins = mainData.substring(2, 4).toInt();
-    c.creatureType = mainData.substring(4, 6).toInt();
-    c.intVal = mainData.substring(6, 8).toInt();
+    c.yearLevel = mainData.substring(0, 1).toInt();
+    c.challengeCode = mainData.substring(1, 4).toInt();
+    c.wrongGuesses = mainData.substring(4, 5).toInt();
+    c.boolVal = mainData.substring(5, 7).toInt();
 
     // Use namePart directly for customName (up to 6 chars if you want to limit it)
     // For now, let's just store the full string:
@@ -371,16 +371,16 @@ Creature decode(int numericPart, const String &namePart)
 
     // Debug output
     Serial.println("[decode] Created Creature from numericPart & namePart:");
-    Serial.print("  Age: ");
-    Serial.println(c.trainerAge);
-    Serial.print("  Coins: ");
-    Serial.println(c.coins);
-    Serial.print("  CreatureType: ");
-    Serial.println(c.creatureType);
+    Serial.print("  Year Level: ");
+    Serial.println(c.yearLevel);
+    Serial.print("  Challenge Code: ");
+    Serial.println(c.challengeCode);
+    Serial.print("  Wrong Guesses: ");
+    Serial.println(c.wrongGuesses);
     Serial.print("  customName: ");
     Serial.println(c.customName);
     Serial.print("  intVal: ");
-    Serial.println(c.intVal);
+    Serial.println(c.boolVal);
 
     return c;
 }
@@ -391,15 +391,15 @@ bool clearChallBools(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const Creature 
 
     // 1) Set intVal to 0
     Creature updatedCreature = creature;
-    updatedCreature.intVal = 0;
+    updatedCreature.boolVal = 0;
 
-    // 2) Build payload: "AA CC TT BB%NAME" (each field is 2 digits)
-    char buffer[15];
-    snprintf(buffer, sizeof(buffer), "%02d%02d%02d%02d%%%s",
-             updatedCreature.trainerAge,
-             updatedCreature.coins,
-             updatedCreature.creatureType,
-             updatedCreature.intVal,
+    // 2) Build payload: "Y CCC W BB%NAME" (each field is 2 digits)
+    char buffer[12];
+    snprintf(buffer, sizeof(buffer), "%01d%03d%01d%02d%%%s",
+             updatedCreature.yearLevel,
+             updatedCreature.challengeCode,
+             updatedCreature.wrongGuesses,
+             updatedCreature.boolVal,
              updatedCreature.customName.substring(0, 6).c_str());
     String payload = String(buffer);
 
