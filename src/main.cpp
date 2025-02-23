@@ -22,6 +22,7 @@ so that rfid code matches new requirements
 void displayRFIDData(const RFIDData &data);
 void displayRFIDParsed(const RFIDParsed &data);
 void displayCreature(const Creature &creature);
+bool sendCreatureToDatabase(const Creature &creature);
 
 // Make sure you declare variables you want to display:
 // String pendingData; // Remove or comment this out
@@ -77,7 +78,6 @@ void exampleReadAndDecode(const String &rawRFID);
 void handleFormSubmit(AsyncWebServerRequest *request);
 void startWebServer();
 void clearUid(MFRC522::Uid &uid);
-bool sendCreatureToDatabase(const Creature &creature);
 bool checkForCreature(const Creature &creature);
 void add_5_coin(const String &customName);
 // void displayRFIDParsed(const RFIDParsed &data);
@@ -87,7 +87,7 @@ void setup()
 {
     Serial.begin(115200);
     tft.init();
-    tft.setRotation(1);
+    tft.setRotation(3);
     tft.setTextSize(2);
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.fillScreen(TFT_BLACK);
@@ -135,6 +135,9 @@ void setup()
     tft.println("Waiting for RFID...");
 
     Serial.println("[setup] Place an RFID card now to read...");
+
+    // On next reboot: read block1 => ID fields; read block2 => creature fields
+    // then push to your online DB
 }
 
 void waitForCard()
@@ -212,7 +215,7 @@ void loop()
                 tft.println("Write Succeeded!");
                 dataPending = false; // Clear pending state
                 hasCreature = true;  // Profile now exists
-                ESP.restart();       // This line resets the ESP32
+                ESP.restart();       // to avoid reboot
             }
             else
             {
@@ -287,9 +290,13 @@ void loop()
             //     /*
             if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
             {
-                // Re-authenticate or finalize any pending operations if needed
+                Serial.println("[loop] Attempting to re-auth for clearChallBools");
                 bool success = clearChallBools(mfrc522, key, myCreature);
                 Serial.println(success ? "[loop] clearChallBools success" : "[loop] clearChallBools failed");
+            }
+            else
+            {
+                Serial.println("[loop] Could not read card for clearChallBools re-auth");
             }
             //     */
             ////////////////////////////////////////////////
@@ -324,7 +331,7 @@ void loop()
                 tft.println("Write Succeeded!");
                 dataPending = false; // Clear pending state
                 hasCreature = true;  // Profile now exists
-                ESP.restart();       // This line resets the ESP32
+                ESP.restart();       // again
             }
             else
             {
@@ -417,74 +424,6 @@ bool writeToRFID(const String &data, byte blockAddr)
     return true;
 }
 
-// Function to send decoded creature data to your Flask API
-bool sendCreatureToDatabase(const Creature &creature)
-{
-    if (WiFi.status() != WL_CONNECTED)
-    {
-        Serial.println("WiFi not connected.");
-        return false;
-    }
-
-    Serial.println("WiFi connected. Starting HTTP POST request...");
-
-    WiFiClient wifiClient;
-    HttpClient http(wifiClient, "gameapi-2e9bb6e38339.herokuapp.com", 80);
-
-    // Build JSON payload
-    String payload = "{";
-    payload += "\"age\":" + String(creature.yearLevel) + ",";
-    payload += "\"coins\":" + String(creature.challengeCode) + ",";
-    payload += "\"creatureType\":" + String(creature.wrongGuesses) + ",";
-    payload += "\"customName\":\"" + creature.customName + "\",";
-    payload += "\"intVal\":" + String(creature.boolVal);
-    payload += "}";
-
-    Serial.println("Payload: " + payload);
-
-    // Connect to the server
-    if (wifiClient.connect("gameapi-2e9bb6e38339.herokuapp.com", 80))
-    {
-        Serial.println("Connected to server.");
-
-        // Send HTTP POST request
-        http.beginRequest();
-        http.post("/api/v1/create_user_from_rfid");
-        http.sendHeader("Content-Type", "application/json");
-        http.sendHeader("Content-Length", payload.length());
-        http.beginBody();
-        http.print(payload);
-        http.endRequest();
-
-        Serial.println("HTTP POST request sent. Waiting for response...");
-
-        // Get the response status code
-        int statusCode = http.responseStatusCode();
-        String response = http.responseBody();
-
-        if (statusCode > 0)
-        {
-            Serial.println("POST request sent successfully.");
-            Serial.println("Response code: " + String(statusCode));
-            Serial.println("Response: " + response);
-        }
-        else
-        {
-            Serial.print("Error: ");
-            Serial.println(statusCode);
-        }
-
-        // Close the connection
-        wifiClient.stop();
-        return (statusCode == 201);
-    }
-    else
-    {
-        Serial.println("Connection failed.");
-        return false;
-    }
-}
-
 // Function to check if a creature is already in the database
 bool checkForCreature(const Creature &creature)
 {
@@ -570,13 +509,9 @@ void handleFormSubmit(AsyncWebServerRequest *request)
             bool B = request->hasParam("B", true);
             bool C = request->hasParam("C", true);
             bool D = request->hasParam("D", true);
+            Serial.printf("A=%d, B=%d, C=%d, D=%d\n", A, B, C, D);
             pendingData.bools = encodeBools(A, B, C, D);
-            /*
-                        // If all checkboxes are true, set this special boolean flag
-                        if (A && B && C && D) {
-                            allChallBools = true;
-                        }
-            */
+
             // Debug output to the serial monitor
             Serial.println("[handleFormSubmit] Received NEW form data:");
             Serial.print(" Year Level: ");
@@ -603,8 +538,16 @@ void handleFormSubmit(AsyncWebServerRequest *request)
             request->send(400, "text/html", "Missing parameters!");
         }
     }
+
+    if (request->hasParam("creatureArtifacts", true))
+    {
+        myCreature.artifactValue = request->getParam("creatureArtifacts", true)->value().toInt();
+    }
+    if (request->hasParam("name", true))
+    {
+        myCreature.customName = request->getParam("name", true)->value();
+    }
 }
-// ...existing code...
 
 // Start the web server
 void startWebServer()
@@ -748,4 +691,75 @@ void displayCreature(const Creature &creature)
     Serial.println(" CreatureType: " + String(creature.wrongGuesses));
     Serial.println(" CustomName: " + creature.customName);
     Serial.println(" IntVal: " + String(creature.boolVal));
+}
+
+bool sendCreatureToDatabase(const Creature &creature)
+{
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        Serial.println("WiFi not connected.");
+        return false;
+    }
+
+    Serial.println("WiFi connected. Starting HTTP POST request...");
+
+    WiFiClient wifiClient;
+    HttpClient http(wifiClient, "gameapi-2e9bb6e38339.herokuapp.com", 80);
+
+    // Build JSON payload
+    String payload = "{";
+    payload += "\"yearLevel\":" + String(creature.yearLevel) + ",";
+    payload += "\"challengeCode\":" + String(creature.challengeCode) + ",";
+    payload += "\"wrongGuesses\":" + String(creature.wrongGuesses) + ",";
+    payload += "\"boolVal\":" + String(creature.boolVal) + ",";
+    payload += "\"creatureType\":" + String(creature.creatureType) + ",";
+    payload += "\"artifactValue\":" + String(creature.artifactValue) + ",";
+    // payload += "\"creatureName\":\"" + creature.creatureName + "\",";
+    payload += "\"customName\":\"" + creature.customName + "\",";
+    payload += "\"coins\":0";
+    payload += "}";
+
+    Serial.println("Payload: " + payload);
+
+    // Connect to the server
+    if (wifiClient.connect("gameapi-2e9bb6e38339.herokuapp.com", 80))
+    {
+        Serial.println("Connected to server.");
+
+        // Send HTTP POST request
+        http.beginRequest();
+        http.post("/api/v1/create_user_from_rfid");
+        http.sendHeader("Content-Type", "application/json");
+        http.sendHeader("Content-Length", payload.length());
+        http.beginBody();
+        http.print(payload);
+        http.endRequest();
+
+        Serial.println("HTTP POST request sent. Waiting for response...");
+
+        // Get the response status code
+        int statusCode = http.responseStatusCode();
+        String response = http.responseBody();
+
+        if (statusCode > 0)
+        {
+            Serial.println("POST request sent successfully.");
+            Serial.println("Response code: " + String(statusCode));
+            Serial.println("Response: " + response);
+        }
+        else
+        {
+            Serial.print("Error: ");
+            Serial.println(statusCode);
+        }
+
+        // Close the connection
+        wifiClient.stop();
+        return (statusCode == 201);
+    }
+    else
+    {
+        Serial.println("Connection failed.");
+        return false;
+    }
 }

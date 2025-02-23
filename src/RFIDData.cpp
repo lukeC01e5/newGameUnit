@@ -35,10 +35,10 @@ void parseRFIDData(const String &data, RFIDData &rfidData)
     // Extract Boolean Values
     rfidData.bools = mainData.substring(5, 7).toInt();
 
-    // Extract Custom Name (ensure it's trimmed to 6 characters)
-    if (nameData.length() > 6)
+    // Extract Custom Name (ensure it's trimmed to 10 characters)
+    if (nameData.length() > 10)
     {
-        rfidData.name = nameData.substring(0, 6);
+        rfidData.name = nameData.substring(0, 10);
     }
     else
     {
@@ -262,12 +262,13 @@ bool writeRFIDData(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const RFIDData &d
     // Create payload: "Y CCC W BB %NAME"
     char buffer[16]; // Increased from 12 to 16
     memset(buffer, 0, sizeof(buffer));
+    // Increase from 6 to 8
     snprintf(buffer, sizeof(buffer), "%01d%03d%01d%02d%%%s",
              data.yearLevel,
              data.challengeCode,
              data.wrongGuesses,
              data.bools,
-             data.name.substring(0, 6).c_str());
+             data.name.substring(0, 8).c_str());
     String payload = String(buffer);
 
     // Debug
@@ -336,14 +337,6 @@ bool writeToRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const String &data,
 
 Creature decode(int numericPart, const String &namePart)
 {
-    // The Creature struct, per your new system, should look similar to:
-    // struct Creature {
-    //     int yearLevel;
-    //     int challengeCode;
-    //     int wrongGuesses;
-    //     String customName;
-    //     int intVal; // was boolVal
-    // };
 
     Creature c;
 
@@ -408,3 +401,38 @@ bool clearChallBools(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const Creature 
     // 3) Write to RFID
     return writeToRFID(mfrc522, key, payload, 1);
 }
+
+// ...existing code...
+/*
+bool writeMultiBlock(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const String &largeData, byte startBlock, byte blockCount)
+{
+    // Example: write largeData across blockCount blocks starting at startBlock
+    // ...existing code logic to authenticate...
+    // For each block, take up to 16 bytes from largeData
+    // ...existing code...
+    for (byte offset = 0; offset < blockCount; offset++)
+    {
+        byte blockAddr = startBlock + offset;
+        String chunk = largeData.substring(offset * 16, (offset + 1) * 16);
+        // ...existing code to authenticate and write 'chunk' to blockAddr...
+    }
+    // ...existing code to finalize...
+    return true;
+}
+
+// Similar function for reading multiple blocks and reassembling
+String readMultiBlock(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte startBlock, byte blockCount)
+{
+    String result;
+    // ...existing code logic to authenticate...
+    for (byte offset = 0; offset < blockCount; offset++)
+    {
+        byte blockAddr = startBlock + offset;
+        // ...existing code to read 16 bytes from blockAddr...
+        // Append chunk to result
+    }
+    // Remove trailing null chars if any
+    result.trim();
+    return result;
+}
+*/
