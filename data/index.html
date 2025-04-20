@@ -12,18 +12,33 @@
 <body>
   <h2>Player Setup</h2>
   <form action="/submit" method="POST">
-    <!-- Age Input -->
-    <label for="age">Year Level (0-9):</label>
-    <input type="number" id="age" name="age" min="0" max="9" required><br><br>
     
-    <!-- challange code -->
-    <label for="coins">Challenge Code (00-99):</label>
-    <input type="number" id="coins" name="coins" min="0" max="999" required><br><br>
+    <!-- Challenge Code -->
+    <label for="challengeCode">Challenge Code (0-999):</label>
+    <input type="number" id="challengeCode" name="challengeCode" min="0" max="999" required><br><br>
 
-    <!-- wrong guesses -->
+    <!-- Wrong Guesses -->
     <label for="wrongGuesses">wrongGuesses (0-9):</label>
-    <input type="wrongGuesses" id="wrongGuesses" name="wrong" min="0" max="9" required><br><br>
+    <input type="number" id="wrongGuesses" name="wrong" min="0" max="9" required><br><br>
     
+    <!-- Boolean Inputs -->
+    <label>Options A-D:</label>
+    <div class="checkbox-group">
+      <!-- Ensure hidden inputs are placed before checkboxes -->
+      <input type="hidden" name="A" value="0">
+      <label><input type="checkbox" name="A" value="1"> A</label>
+      
+      <input type="hidden" name="B" value="0">
+      <label><input type="checkbox" name="B" value="1"> B</label>
+      
+      <input type="hidden" name="C" value="0">
+      <label><input type="checkbox" name="C" value="1"> C</label>
+      
+      <input type="hidden" name="D" value="0">
+      <label><input type="checkbox" name="D" value="1"> D</label>
+    </div><br><br>
+
+
     <!-- Creature Type Dropdown -->
     <label for="creatureType">creatureType (0-34):</label>
     <select id="creatureType" name="creatureType" required>
@@ -64,21 +79,10 @@
       <option value="34">Moss-Bear</option>
     </select><br><br>
     
-    <!-- Boolean Inputs -->
-    <label>Options A-D:</label>
-    <div class="checkbox-group">
-      <label><input type="checkbox" name="A" value="1"> A</label>
-      <label><input type="checkbox" name="B" value="1"> B</label>
-      <label><input type="checkbox" name="C" value="1"> C</label>
-      <label><input type="checkbox" name="D" value="1"> D</label>
-    </div><br><br>
-    
-    <!-- Creature Artifacts Input -->
-    <label for="creatureArtifacts">Creature Artifacts (0-99):</label>
-    <input type="number" id="creatureArtifacts" name="creatureArtifacts" min="0" max="99" required><br><br>
+
 
     <!-- Creature Name Input -->
-    <label for="name">Creature Name (Max 10 chars):</label>
+    <label for="name">Character Name (Max 10 chars):</label>
     <input type="text" id="name" name="name" maxlength="10" required><br><br>
     
     <input type="submit" value="Submit">

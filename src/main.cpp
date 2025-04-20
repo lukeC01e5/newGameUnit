@@ -3,6 +3,13 @@
 trying to re-figure
 so that rfid code matches new requirements
 
+rfid write seems to be working correctly
+but the read is not working correctly it seems to be reading the wrong block
+
+
+also you will need to alter the api functions to align with the new data structure
+
+
 */
 
 #include <Arduino.h>
@@ -80,6 +87,8 @@ void startWebServer();
 void clearUid(MFRC522::Uid &uid);
 bool checkForCreature(const Creature &creature);
 void add_5_coin(const String &customName);
+bool writeRFIDData(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const RFIDData &data);
+
 // void displayRFIDParsed(const RFIDParsed &data);
 
 // Setup
@@ -97,8 +106,10 @@ void setup()
     // Initialize SPI and RFID
     SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);
     mfrc522.PCD_Init();
-    Serial.println("RFID Initialized");
-    tft.println("RFID Initialized");
+
+    ///////uncoment this if you are having problem with frid ///////////////
+    // Serial.println("RFID Initialized");
+    // tft.println("RFID Initialized");
 
     // Set default key for RFID
     for (byte i = 0; i < 6; i++)
@@ -157,6 +168,7 @@ void loop()
     {
         waitForCard(); // Loop until card is detected
         Serial.println("Card detected");
+
         // Once a card is detected, read raw data from a specific block
 
         // In setup(), after detecting a new card:
@@ -215,7 +227,7 @@ void loop()
                 tft.println("Write Succeeded!");
                 dataPending = false; // Clear pending state
                 hasCreature = true;  // Profile now exists
-                ESP.restart();       // to avoid reboot
+                // Removed ESP.restart() to avoid reboot
             }
             else
             {
@@ -246,8 +258,6 @@ void loop()
         Creature myCreature = decode(myIntPart, myStrPart);
 
         // Example usage after reading:
-        Serial.print("YearLevel: ");
-        Serial.println(myCreature.yearLevel);
         Serial.print("ChallengeCode: ");
         Serial.println(myCreature.challengeCode);
         Serial.print("WrongGuesses: ");
@@ -290,13 +300,9 @@ void loop()
             //     /*
             if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
             {
-                Serial.println("[loop] Attempting to re-auth for clearChallBools");
+                // Re-authenticate or finalize any pending operations if needed
                 bool success = clearChallBools(mfrc522, key, myCreature);
                 Serial.println(success ? "[loop] clearChallBools success" : "[loop] clearChallBools failed");
-            }
-            else
-            {
-                Serial.println("[loop] Could not read card for clearChallBools re-auth");
             }
             //     */
             ////////////////////////////////////////////////
@@ -331,7 +337,7 @@ void loop()
                 tft.println("Write Succeeded!");
                 dataPending = false; // Clear pending state
                 hasCreature = true;  // Profile now exists
-                ESP.restart();       // again
+                // Removed ESP.restart() again
             }
             else
             {
@@ -489,15 +495,14 @@ void handleFormSubmit(AsyncWebServerRequest *request)
     if (request->method() == HTTP_POST)
     {
         // Ensure the required parameters are present
-        if (request->hasParam("age", true) &&
-            request->hasParam("coins", true) &&
+        if (request->hasParam("challengeCode", true) &&
             request->hasParam("wrong", true) &&
             request->hasParam("name", true) &&
             request->hasParam("creatureType", true))
         {
             // Extract form data from request and populate pendingData
-            pendingData.yearLevel = request->getParam("age", true)->value().toInt();
-            pendingData.challengeCode = request->getParam("coins", true)->value().toInt();
+            // pendingData.yearLevel = request->getParam("age", true)->value().toInt();
+            pendingData.challengeCode = request->getParam("challengeCode", true)->value().toInt();
             pendingData.wrongGuesses = request->getParam("wrong", true)->value().toInt();
             pendingData.name = request->getParam("name", true)->value();
 
@@ -509,13 +514,17 @@ void handleFormSubmit(AsyncWebServerRequest *request)
             bool B = request->hasParam("B", true);
             bool C = request->hasParam("C", true);
             bool D = request->hasParam("D", true);
-            Serial.printf("A=%d, B=%d, C=%d, D=%d\n", A, B, C, D);
             pendingData.bools = encodeBools(A, B, C, D);
-
+            /*
+                        // If all checkboxes are true, set this special boolean flag
+                        if (A && B && C && D) {
+                            allChallBools = true;
+                        }
+            */
             // Debug output to the serial monitor
             Serial.println("[handleFormSubmit] Received NEW form data:");
-            Serial.print(" Year Level: ");
-            Serial.println(pendingData.yearLevel);
+            // Serial.print(" Year Level: ");
+            // Serial.println(pendingData.yearLevel);
             Serial.print(" Challenge Code: ");
             Serial.println(pendingData.challengeCode);
             Serial.print(" Wrong Guesses: ");
@@ -548,6 +557,7 @@ void handleFormSubmit(AsyncWebServerRequest *request)
         myCreature.customName = request->getParam("name", true)->value();
     }
 }
+// ...existing code...
 
 // Start the web server
 void startWebServer()
@@ -667,7 +677,6 @@ void displayRFIDData(const RFIDData &data)
 {
     Serial.println("RFIDData:");
     Serial.println(" Name: " + data.name);
-    Serial.println(" Year Level: " + String(data.yearLevel));
     Serial.println(" Challenge Code: " + String(data.challengeCode));
     Serial.println(" Wrong Guesses: " + String(data.wrongGuesses));
     Serial.println(" Bools: " + String(data.bools, BIN));
@@ -676,7 +685,6 @@ void displayRFIDData(const RFIDData &data)
 void displayRFIDParsed(const RFIDParsed &data)
 {
     Serial.println("RFIDParsed:");
-    Serial.println(" Year Level: " + String(data.yearLevel));
     Serial.println(" Challenge Code: " + String(data.challengeCode));
     Serial.println(" Wrong Guesses: " + String(data.wrongGuesses));
     Serial.println(" BoolVal: " + String(data.boolVal, BIN));
@@ -686,7 +694,6 @@ void displayRFIDParsed(const RFIDParsed &data)
 void displayCreature(const Creature &creature)
 {
     Serial.println("Creature:");
-    Serial.println(" TrainerAge: " + String(creature.yearLevel));
     Serial.println(" Coins: " + String(creature.challengeCode));
     Serial.println(" CreatureType: " + String(creature.wrongGuesses));
     Serial.println(" CustomName: " + creature.customName);
@@ -708,7 +715,6 @@ bool sendCreatureToDatabase(const Creature &creature)
 
     // Build JSON payload
     String payload = "{";
-    payload += "\"yearLevel\":" + String(creature.yearLevel) + ",";
     payload += "\"challengeCode\":" + String(creature.challengeCode) + ",";
     payload += "\"wrongGuesses\":" + String(creature.wrongGuesses) + ",";
     payload += "\"boolVal\":" + String(creature.boolVal) + ",";

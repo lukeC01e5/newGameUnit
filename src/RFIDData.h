@@ -9,7 +9,7 @@
 struct RFIDData
 {
     String name;       // 10 characters max
-    int yearLevel;     // 00-99
+    //int yearLevel;     // 00-99
     int challengeCode; // 00-99
     int wrongGuesses;  // 00-34 (0 reserved for 'no creature')
     uint8_t bools;     // 0-15 representing 4 boolean values
@@ -20,7 +20,7 @@ struct RFIDData
 struct RFIDParsed
 {
     uint8_t boolVal;
-    int yearLevel;     // 00-99
+    //int yearLevel;     // 00-99
     int challengeCode; // 00-99
     int wrongGuesses;  // 00-34 (0 reserved for 'no creature')
     String name;
@@ -28,7 +28,7 @@ struct RFIDParsed
 
 struct Creature
 {
-    int yearLevel;       // 1 digit (1-9)
+    //int yearLevel;       // 1 digit (1-9)
     int challengeCode;   // 3 digits (000-999)
     int wrongGuesses;    // 1 digit (0-9)
     int boolVal;         // unchanged

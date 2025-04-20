@@ -4,76 +4,40 @@
 
 void parseRFIDData(const String &data, RFIDData &rfidData)
 {
-    // Ensure the data contains the '%' separator
     int separatorIndex = data.indexOf('%');
     if (separatorIndex == -1)
     {
-        Serial.println("Invalid data format: Missing separator");
+        Serial.println("Invalid data format: Missing '%'");
         return;
     }
 
-    // Extract the main data and name
+    // "mainData" = "1112?33"
     String mainData = data.substring(0, separatorIndex);
+    // "nameData"  = "Name"
     String nameData = data.substring(separatorIndex + 1);
 
-    // Ensure mainData has exactly 7 characters (Y CCC W BB)
-    if (mainData.length() != 7)
+    if (mainData.length() != 7) // Must be exactly 7: [0..2]=CCC, [3]=W, [4]='?', [5..6]=BB
     {
-        Serial.println("Invalid data format: Expected 7 characters in main data");
+        Serial.println("Invalid format: Expected 7 chars in main data ('CCCW?BB')");
         return;
     }
 
-    // Extract Year Level
-    rfidData.yearLevel = mainData.substring(0, 1).toInt();
+    // Parse out the fields
+    rfidData.challengeCode = mainData.substring(0, 3).toInt(); // e.g. "111" -> 111
+    rfidData.wrongGuesses = mainData.substring(3, 4).toInt();  // e.g. "2"
+    // skip mainData[4] because it's '?'
+    rfidData.bools = mainData.substring(5, 7).toInt(); // e.g. "33" -> 33 decimal
 
-    // Extract Challenge Code
-    rfidData.challengeCode = mainData.substring(1, 4).toInt();
-
-    // Extract Wrong Guesses
-    rfidData.wrongGuesses = mainData.substring(4, 5).toInt();
-
-    // Extract Boolean Values
-    rfidData.bools = mainData.substring(5, 7).toInt();
-
-    // Extract Custom Name (ensure it's trimmed to 10 characters)
-    if (nameData.length() > 10)
-    {
-        rfidData.name = nameData.substring(0, 10);
-    }
-    else
-    {
-        rfidData.name = nameData;
-    }
-
-    // Debugging output
-    Serial.println("Parsed RFID Data:");
-    Serial.print("Year Level: ");
-    Serial.println(rfidData.yearLevel);
-    Serial.print("Challenge Code: ");
-    Serial.println(rfidData.challengeCode);
-    Serial.print("Wrong Guesses: ");
-    Serial.println(rfidData.wrongGuesses);
-    Serial.print("Bools: ");
-    Serial.println(rfidData.bools, BIN); // Print as binary
-
-    // Strip any '\0' in rfidData.name:
-    int nullPos;
-    while ((nullPos = rfidData.name.indexOf('\0')) != -1)
-    {
-        rfidData.name.remove(nullPos, 1);
-    }
-
-    // Now prints the trimmed name only:
-    Serial.print("Custom Name: ");
-    Serial.println(rfidData.name);
+    // Name up to 8 chars
+    rfidData.name = nameData.substring(0, 8);
 }
 
 RFIDParsed parseRawRFID(const String &raw)
 {
-
     Serial.println("parsed called");
 
-    RFIDParsed result{0, 0, 0, 0, ""};
+    // Fix: only four fields for { boolVal, challengeCode, wrongGuesses, name }
+    RFIDParsed result{0, 0, 0, ""};
 
     int sepIndex = raw.indexOf('%');
     if (sepIndex == -1)
@@ -90,7 +54,6 @@ RFIDParsed parseRawRFID(const String &raw)
         return result;
     }
 
-    result.yearLevel = mainData.substring(0, 1).toInt();
     result.challengeCode = mainData.substring(1, 4).toInt();
     result.wrongGuesses = mainData.substring(4, 5).toInt();
     result.boolVal = mainData.substring(5, 7).toInt();
@@ -246,10 +209,7 @@ String readFromRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte blockAddr, 
 // ...existing code...
 bool writeRFIDData(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const RFIDData &data)
 {
-    // Debug prints before constructing payload:
     Serial.println("[writeRFIDData] Preparing to write data:");
-    Serial.print(" Year Level: ");
-    Serial.println(data.yearLevel);
     Serial.print(" Challenge Code: ");
     Serial.println(data.challengeCode);
     Serial.print(" Wrong Guesses: ");
@@ -259,23 +219,26 @@ bool writeRFIDData(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const RFIDData &d
     Serial.print(" Name: ");
     Serial.println(data.name);
 
-    // Create payload: "Y CCC W BB %NAME"
-    char buffer[16]; // Increased from 12 to 16
+    // Now use 7 chars for main data:
+    //   0–2 => challengeCode (3 digits),
+    //   3   => wrongGuesses (1 digit),
+    //   4   => '?' marker,
+    //   5–6 => boolVal (2 digits),
+    // then '%NAME' for the remainder
+    char buffer[16];
     memset(buffer, 0, sizeof(buffer));
-    // Increase from 6 to 8
-    snprintf(buffer, sizeof(buffer), "%01d%03d%01d%02d%%%s",
-             data.yearLevel,
+
+    // Example: "CCCW?BB%Name"
+    snprintf(buffer, sizeof(buffer), "%03d%01d?%02d%%%s",
              data.challengeCode,
              data.wrongGuesses,
              data.bools,
              data.name.substring(0, 8).c_str());
-    String payload = String(buffer);
 
-    // Debug
+    String payload = String(buffer);
     Serial.print("[writeRFIDData] Final payload: ");
     Serial.println(payload);
 
-    // Use helper
     bool result = writeToRFID(mfrc522, key, payload, 1);
     if (result)
     {
@@ -337,35 +300,27 @@ bool writeToRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const String &data,
 
 Creature decode(int numericPart, const String &namePart)
 {
-
     Creature c;
 
-    // Convert numericPart to a 7-digit string (leading zeros included)
-    char buffer[8];
-    snprintf(buffer, sizeof(buffer), "%07d", numericPart);
+    // Convert numericPart to a 6-digit string
+    char buffer[7];
+    snprintf(buffer, sizeof(buffer), "%06d", numericPart);
     String mainData = buffer;
 
-    // We expect exactly 7 chars: [0]=yearLevel, [1..3]=challengeCode, [4]=wrongGuesses, [5..6]=intVal
-    if (mainData.length() < 7)
+    // Expect 6 chars: [0..2]=challengeCode, [3]=wrongGuesses, [4..5]=boolVal
+    if (mainData.length() < 6)
     {
         Serial.println("[decode] Not enough digits in numericPart");
         return c; // return empty if invalid
     }
 
-    // Parse fields
-    c.yearLevel = mainData.substring(0, 1).toInt();
-    c.challengeCode = mainData.substring(1, 4).toInt();
-    c.wrongGuesses = mainData.substring(4, 5).toInt();
-    c.boolVal = mainData.substring(5, 7).toInt();
-
-    // Use namePart directly for customName (up to 6 chars if you want to limit it)
-    // For now, let's just store the full string:
+    c.challengeCode = mainData.substring(0, 3).toInt();
+    c.wrongGuesses = mainData.substring(3, 4).toInt();
+    c.boolVal = mainData.substring(4, 6).toInt();
     c.customName = namePart;
 
     // Debug output
     Serial.println("[decode] Created Creature from numericPart & namePart:");
-    Serial.print("  Year Level: ");
-    Serial.println(c.yearLevel);
     Serial.print("  Challenge Code: ");
     Serial.println(c.challengeCode);
     Serial.print("  Wrong Guesses: ");
@@ -389,7 +344,7 @@ bool clearChallBools(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const Creature 
     // 2) Build payload: "Y CCC W BB%NAME" (each field is 2 digits)
     char buffer[12];
     snprintf(buffer, sizeof(buffer), "%01d%03d%01d%02d%%%s",
-             updatedCreature.yearLevel,
+             // updatedCreature.yearLevel,
              updatedCreature.challengeCode,
              updatedCreature.wrongGuesses,
              updatedCreature.boolVal,
@@ -403,7 +358,7 @@ bool clearChallBools(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const Creature 
 }
 
 // ...existing code...
-/*
+
 bool writeMultiBlock(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, const String &largeData, byte startBlock, byte blockCount)
 {
     // Example: write largeData across blockCount blocks starting at startBlock
@@ -435,4 +390,3 @@ String readMultiBlock(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte startBloc
     result.trim();
     return result;
 }
-*/
