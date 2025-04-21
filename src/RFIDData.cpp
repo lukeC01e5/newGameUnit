@@ -172,9 +172,17 @@ String readFromRFID(MFRC522 &mfrc522, MFRC522::MIFARE_Key &key, byte blockAddr, 
     int sepIndex = result.indexOf('%');
     if (sepIndex != -1)
     {
+        // Before “%” => "0048?15"
         String intPartStr = result.substring(0, sepIndex);
-        strPart = result.substring(sepIndex + 1);
+
+        // Remove the '?' so it becomes "004815"
+        intPartStr.replace("?", "");
+
+        // Convert that to an integer => 4815
         intPart = intPartStr.toInt();
+
+        // Everything after “%” => "Luke Co"
+        strPart = result.substring(sepIndex + 1);
 
         // Check if all booleans are true (assuming they are stored in the lower bits of intPart)
         bool A = (intPart & 0x01) != 0;

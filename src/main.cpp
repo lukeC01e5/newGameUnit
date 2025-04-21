@@ -497,8 +497,7 @@ void handleFormSubmit(AsyncWebServerRequest *request)
         // Ensure the required parameters are present
         if (request->hasParam("challengeCode", true) &&
             request->hasParam("wrong", true) &&
-            request->hasParam("name", true) &&
-            request->hasParam("creatureType", true))
+            request->hasParam("name", true))
         {
             // Extract form data from request and populate pendingData
             // pendingData.yearLevel = request->getParam("age", true)->value().toInt();
@@ -539,7 +538,7 @@ void handleFormSubmit(AsyncWebServerRequest *request)
             Serial.println("[handleFormSubmit] dataPending set to TRUE.");
 
             // Send a response to the client indicating success
-            request->send(200, "text/html", "Data received. Please present your RFID card to complete write.");
+            request->send(200, "text/html", "Data received.");
         }
         else
         {
@@ -548,10 +547,10 @@ void handleFormSubmit(AsyncWebServerRequest *request)
         }
     }
 
-    if (request->hasParam("creatureArtifacts", true))
-    {
-        myCreature.artifactValue = request->getParam("creatureArtifacts", true)->value().toInt();
-    }
+    // if (request->hasParam("creatureArtifacts", true))
+    //{
+    //      myCreature.artifactValue = request->getParam("creatureArtifacts", true)->value().toInt();
+    // }
     if (request->hasParam("name", true))
     {
         myCreature.customName = request->getParam("name", true)->value();
@@ -693,9 +692,9 @@ void displayRFIDParsed(const RFIDParsed &data)
 
 void displayCreature(const Creature &creature)
 {
-    Serial.println("Creature:");
+    // Serial.println("Creature:");
     Serial.println(" Coins: " + String(creature.challengeCode));
-    Serial.println(" CreatureType: " + String(creature.wrongGuesses));
+    // Serial.println(" CreatureType: " + String(creature.wrongGuesses));
     Serial.println(" CustomName: " + creature.customName);
     Serial.println(" IntVal: " + String(creature.boolVal));
 }
@@ -718,9 +717,6 @@ bool sendCreatureToDatabase(const Creature &creature)
     payload += "\"challengeCode\":" + String(creature.challengeCode) + ",";
     payload += "\"wrongGuesses\":" + String(creature.wrongGuesses) + ",";
     payload += "\"boolVal\":" + String(creature.boolVal) + ",";
-    payload += "\"creatureType\":" + String(creature.creatureType) + ",";
-    payload += "\"artifactValue\":" + String(creature.artifactValue) + ",";
-    // payload += "\"creatureName\":\"" + creature.creatureName + "\",";
     payload += "\"customName\":\"" + creature.customName + "\",";
     payload += "\"coins\":0";
     payload += "}";
