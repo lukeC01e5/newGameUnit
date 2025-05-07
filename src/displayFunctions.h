@@ -2,20 +2,20 @@
 #include <TFT_eSPI.h> // Include the TFT_eSPI library
 
 TFT_eSPI tft; // Create an instance of the TFT class
-
+/*
 void displayTrex()
 {
   tft.fillScreen(TFT_BLACK); // Clear the screen
 
   int16_t x = tft.width() / 2;                   // Calculate the x coordinate of the center of the screen
   int16_t y = tft.height() / 2;                  // Calculate the y coordinate of the center of the screen
-  tft.pushImage(x - 30, y - 50, 128, 128, Trex); // Draw the T-Rex image at the center of the screen
+  //tft.pushImage(x - 30, y - 50, 128, 128, Trex); // Draw the T-Rex image at the center of the screen
 
   delay(3000);               // Wait for 3 seconds
   tft.fillScreen(TFT_BLACK); // Clear the screen
   return;
 }
-
+ */
 void scan4challange()
 {
   tft.fillScreen(TFT_BLACK);

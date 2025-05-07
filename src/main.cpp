@@ -228,6 +228,9 @@ void loop()
                 dataPending = false; // Clear pending state
                 hasCreature = true;  // Profile now exists
                 // Removed ESP.restart() to avoid reboot
+                ////////////////////////////////////////////////////
+                ////////////////here is were  you could update /////
+                //////////////////////online profile //////////////
             }
             else
             {
@@ -484,79 +487,30 @@ bool checkForCreature(const Creature &creature)
     wifiClient.stop();
     return (statusCode == 200);
 }
-// ...existing code...
+
+// Handle form submission
 void handleFormSubmit(AsyncWebServerRequest *request)
 {
-    // Indicate that a form has been submitted, used by other parts of the program
-    Serial.print("should change form bool here");
-    formSubmitted = true;
-
-    // Only proceed if the request is an HTTP POST
+    formSubmitted = true; // Mark that the form was submitted
     if (request->method() == HTTP_POST)
     {
-        // Ensure the required parameters are present
-        if (request->hasParam("challengeCode", true) &&
-            request->hasParam("wrong", true) &&
-            request->hasParam("name", true))
+        // Only read the "name" parameter
+        if (request->hasParam("name", true))
         {
-            // Extract form data from request and populate pendingData
-            // pendingData.yearLevel = request->getParam("age", true)->value().toInt();
-            pendingData.challengeCode = request->getParam("challengeCode", true)->value().toInt();
-            pendingData.wrongGuesses = request->getParam("wrong", true)->value().toInt();
-            pendingData.name = request->getParam("name", true)->value();
+            String playerName = request->getParam("name", true)->value();
 
-            // Assign creatureType to the global Creature object only
-            myCreature.creatureType = request->getParam("creatureType", true)->value().toInt();
+            // Build the data format => "0000?00%Name"
+            RFIDData newData;
+            newData.challengeCode = 0; // "000" + 4th digit is also 0 => "0000"
+            newData.wrongGuesses = 9;
+            newData.bools = 0;         // "00"
+            newData.name = playerName; // after '%'
 
-            // Convert checkbox values into a single encoded integer (encodeBools is defined elsewhere)
-            bool A = request->hasParam("A", true);
-            bool B = request->hasParam("B", true);
-            bool C = request->hasParam("C", true);
-            bool D = request->hasParam("D", true);
-            pendingData.bools = encodeBools(A, B, C, D);
-            /*
-                        // If all checkboxes are true, set this special boolean flag
-                        if (A && B && C && D) {
-                            allChallBools = true;
-                        }
-            */
-            // Debug output to the serial monitor
-            Serial.println("[handleFormSubmit] Received NEW form data:");
-            // Serial.print(" Year Level: ");
-            // Serial.println(pendingData.yearLevel);
-            Serial.print(" Challenge Code: ");
-            Serial.println(pendingData.challengeCode);
-            Serial.print(" Wrong Guesses: ");
-            Serial.println(pendingData.wrongGuesses);
-            Serial.print(" Bools (bin): ");
-            Serial.println(pendingData.bools, BIN);
-            Serial.print(" Name: ");
-            Serial.println(pendingData.name);
-
-            // Notify other code that new form data is ready to be processed
-            dataPending = true;
-            Serial.println("[handleFormSubmit] dataPending set to TRUE.");
-
-            // Send a response to the client indicating success
-            request->send(200, "text/html", "Data received.");
+            pendingData = newData;
+            dataPending = true; // Signal elsewhere to write to RFID
         }
-        else
-        {
-            // Inform the client that not all expected parameters were provided
-            request->send(400, "text/html", "Missing parameters!");
-        }
-    }
-
-    // if (request->hasParam("creatureArtifacts", true))
-    //{
-    //      myCreature.artifactValue = request->getParam("creatureArtifacts", true)->value().toInt();
-    // }
-    if (request->hasParam("name", true))
-    {
-        myCreature.customName = request->getParam("name", true)->value();
     }
 }
-// ...existing code...
 
 // Start the web server
 void startWebServer()
