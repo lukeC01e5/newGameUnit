@@ -11,20 +11,22 @@
 </head>
 <body>
   <h2>Welcome</h2>
-  <button id="editProfileBtn" disabled>Edit Profile</button>
+  <button id="editProfileBtn">Create Profile</button> 
   <button id="viewProfileBtn" disabled>View Profile</button>
   
   <div id="statusMessage">No card present.</div>
 
   <script>
     // Function to update button states based on card status
+    // "Create Profile" is now always enabled; only "View Profile" toggles.
     function updateButtons(cardPresent, hasCreature) {
       const editBtn = document.getElementById('editProfileBtn');
       const viewBtn = document.getElementById('viewProfileBtn');
       const statusMsg = document.getElementById('statusMessage');
 
+      editBtn.disabled = false;  // Always enabled now
+
       if (cardPresent) {
-        editBtn.disabled = false;
         statusMsg.textContent = 'Card detected.';
         if (hasCreature) {
           viewBtn.disabled = false;
@@ -34,7 +36,6 @@
           statusMsg.textContent += ' No existing profile.';
         }
       } else {
-        editBtn.disabled = true;
         viewBtn.disabled = true;
         statusMsg.textContent = 'No card present.';
       }
@@ -53,26 +54,20 @@
         });
     }
 
-    // Poll the card status every 2 seconds
-    checkCardStatus(); // Initial check
+    // Poll the card status periodically
+    checkCardStatus();
     setInterval(checkCardStatus, 2000);
 
-    // Redirect to edit profile
-    document.getElementById('editProfileBtn').addEventListener('click', function() {
+    // Redirect to editProfile (renamed "create profile," but same route)
+    document.getElementById('editProfileBtn').addEventListener('click', () => {
       window.location.href = '/editProfile';
     });
 
-    // Function to handle viewing profile
-    document.getElementById('viewProfileBtn').addEventListener('click', function() {
-      // Implement view profile functionality here
-      onlineProfile();
-    });
-
-    // Placeholder for onlineProfile function
-    function onlineProfile() {
+    // View Profile button
+    document.getElementById('viewProfileBtn').addEventListener('click', () => {
       alert('Online Profile function called.');
       // Add your online profile logic here
-    }
+    });
   </script>
 </body>
 </html>

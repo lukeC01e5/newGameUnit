@@ -1,5 +1,5 @@
 .pio/build/ttgo-lora32-v1/lib56d/ArduinoHttpClient/HttpClient.cpp.o: \
- .pio/libdeps/ttgo-lora32-v1/ArduinoHttpClient/src/HTTPClient.cpp \
+ .pio/libdeps/ttgo-lora32-v1/ArduinoHttpClient/src/HttpClient.cpp \
  .pio/libdeps/ttgo-lora32-v1/ArduinoHttpClient/src/HttpClient.h \
  C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/cores/esp32/Arduino.h \
  C:/Users/OEM/.platformio/packages/framework-arduinoespressif32/cores/esp32/esp_arduino_version.h \

@@ -1,0 +1,266 @@
+#include <Arduino.h>
+#include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+#include <SPIFFS.h>
+#include <SPI.h>
+#include <MFRC522.h>
+#include <HttpClient.h>
+#include "arduino_secrets.h" // Contains SECRET_SSID, SECRET_PASS
+#include "GlobalDefs.h"      // For pins, extern variables, etc.
+
+// Global variable if you want to track whether the user is new
+bool newUser = false;
+
+// Simple user object
+struct User
+{
+    String name;
+    String rfidUID;
+};
+
+User currentUser; // Stores the user’s name & RFID UID
+AsyncWebServer server(80);
+
+// 1) Check if user already exists
+bool checkForUser(const User &user)
+{
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        Serial.println("WiFi not connected.");
+        return false;
+    }
+
+    Serial.println("[checkForUser] WiFi connected. Starting HTTP GET request...");
+
+    WiFiClient wifiClient;
+    HttpClient http(wifiClient, "gameapi-2e9bb6e38339.herokuapp.com", 80);
+
+    // Use the existing /api/v1/users route in app.py instead of /api/v1/get_users
+    http.beginRequest();
+    http.get("/api/v1/users");
+    http.sendHeader("Content-Type", "application/json");
+    http.endRequest();
+
+    Serial.println("[checkForUser] GET request sent. Waiting for response...");
+
+    int statusCode = http.responseStatusCode();
+    String response = http.responseBody();
+
+    if (statusCode > 0)
+    {
+        Serial.println("[checkForUser] Response code: " + String(statusCode));
+        Serial.println("[checkForUser] Response: " + response);
+        // Check if user name or RFID is already in response
+        if (response.indexOf("\"" + user.name + "\"") != -1 ||
+            response.indexOf("\"" + user.rfidUID + "\"") != -1)
+        {
+            newUser = false;
+            Serial.println("[checkForUser] User already exists: " + user.name);
+        }
+        else
+        {
+            newUser = true;
+            Serial.println("[checkForUser] New user: " + user.name);
+        }
+    }
+    else
+    {
+        Serial.print("[checkForUser] Error code: ");
+        Serial.println(statusCode);
+    }
+
+    wifiClient.stop();
+    // Optionally, return true if the request was successful
+    return (statusCode == 200);
+}
+
+// 2) Create or update user in DB if new
+bool sendUserToDatabase(const User &user)
+{
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        Serial.println("WiFi not connected.");
+        return false;
+    }
+
+    Serial.println("[sendUserToDatabase] WiFi connected. Starting HTTP POST request...");
+
+    // Example endpoint: /api/v1/create_user_from_rfid
+    WiFiClient wifiClient;
+    HttpClient http(wifiClient, "gameapi-2e9bb6e38339.herokuapp.com", 80);
+
+    // Build JSON payload with additional fields
+    // You can hardcode or dynamically set these values:
+    String mainCreature = "No Creature"; // example
+    int singleChallengeCode = 000;       // example: a 3-digit code
+    int singleCreatureValue = 0;         // example: a single integer for creatures
+    // artifacts is an empty array to start
+
+    String payload = "{";
+    payload += "\"name\":\"" + user.name + "\",";
+    payload += "\"rfidUID\":\"" + user.rfidUID + "\",";
+    payload += "\"mainCreature\":\"" + mainCreature + "\",";
+    payload += "\"challengeCodes\":[" + String(singleChallengeCode) + "],";
+    payload += "\"creatures\":[" + String(singleCreatureValue) + "],";
+    payload += "\"artifacts\":[]";
+    payload += "}";
+
+    Serial.println("[sendUserToDatabase] Payload: " + payload);
+
+    if (wifiClient.connect("gameapi-2e9bb6e38339.herokuapp.com", 80))
+    {
+        http.beginRequest();
+        http.post("/api/v1/create_user_from_rfid");
+        http.sendHeader("Content-Type", "application/json");
+        http.sendHeader("Content-Length", payload.length());
+        http.beginBody();
+        http.print(payload);
+        http.endRequest();
+
+        Serial.println("[sendUserToDatabase] POST sent. Waiting for response...");
+
+        int statusCode = http.responseStatusCode();
+        String response = http.responseBody();
+
+        if (statusCode > 0)
+        {
+            Serial.println("[sendUserToDatabase] Response code: " + String(statusCode));
+            Serial.println("[sendUserToDatabase] Response: " + response);
+        }
+        else
+        {
+            Serial.print("[sendUserToDatabase] Error code: ");
+            Serial.println(statusCode);
+        }
+        wifiClient.stop();
+        return (statusCode == 201);
+    }
+    else
+    {
+        Serial.println("[sendUserToDatabase] Connection failed.");
+        return false;
+    }
+}
+
+// Handle form submission
+void handleFormSubmit(AsyncWebServerRequest *request)
+{
+    if (request->method() == HTTP_POST && request->hasParam("name", true))
+    {
+        currentUser.name = request->getParam("name", true)->value();
+        formSubmitted = true;
+
+        // Show submitted name on TFT
+        tft.println("Submitted name: " + currentUser.name);
+
+        request->send(200, "text/plain", "Name received: " + currentUser.name);
+    }
+    else
+    {
+        request->send(400, "text/plain", "Missing parameters!");
+    }
+}
+
+// Create a simple route & start server
+void startWebServer()
+{
+    // Make sure SPIFFS is mounted
+    if (!SPIFFS.begin(true))
+    {
+        Serial.println("An error has occurred while mounting SPIFFS");
+        return;
+    }
+
+    // Serve the landing.html at root:
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/landing.html", "text/html"); });
+
+    // Serve the index.html at /editProfile or directly if you prefer
+    server.on("/editProfile", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->send(SPIFFS, "/index.html", "text/html"); });
+
+    // Handle form submission
+    server.on("/submit", HTTP_POST, handleFormSubmit);
+
+    // Begin server
+    server.begin();
+    Serial.println("Web server started.");
+}
+
+// Setup
+void setup()
+{
+    Serial.begin(115200);
+    tft.setRotation(3);
+    tft.setTextSize(2);
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.init();
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(0, 0);
+
+    // Connect to Wi-Fi
+    WiFi.begin(SECRET_SSID, SECRET_PASS);
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        delay(500);
+    }
+    tft.println("Connected! IP:\n " + WiFi.localIP().toString());
+
+    // Initialize SPI and MFRC522
+    SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN); // or your pin definitions
+    mfrc522.PCD_Init();
+
+    // Start the web server
+    startWebServer();
+}
+
+// Main loop
+void loop()
+{
+    // Removed mfrc522.PCD_Init() from loop
+
+    if (formSubmitted)
+    {
+        tft.setCursor(0, tft.getCursorY() + 15);
+        tft.print("Place your card...");
+        delay(1000); // Give user time to place card
+
+        if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
+        {
+            tft.fillScreen(TFT_BLACK);
+            tft.setCursor(0, 0);
+
+            String uidStr;
+            for (byte i = 0; i < mfrc522.uid.size; i++)
+            {
+                if (mfrc522.uid.uidByte[i] < 0x10)
+                    uidStr += "0";
+                uidStr += String(mfrc522.uid.uidByte[i], HEX);
+            }
+            currentUser.rfidUID = uidStr;
+
+            // Show the UID on the Serial + TFT
+            Serial.println("User name: " + currentUser.name);
+            Serial.println("User RFID: " + currentUser.rfidUID);
+
+            tft.setCursor(0, tft.getCursorY() + 15);
+            tft.print("UID: ");
+            tft.println(currentUser.rfidUID);
+
+            // Check if user exists and send to database if new
+            if (checkForUser(currentUser))
+            {
+                if (newUser)
+                {
+                    sendUserToDatabase(currentUser);
+                }
+            }
+
+            mfrc522.PICC_HaltA();
+            mfrc522.PCD_StopCrypto1();
+            formSubmitted = false;
+        }
+    }
+
+    delay(100);
+}
